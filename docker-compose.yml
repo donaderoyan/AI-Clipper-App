@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai_clipper_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Sinkronisasi folder data agar video bisa diakses langsung di Windows
+      - ./data:/app/data
+      # Hot-reload: Sinkronisasi kode agar tidak perlu rebuild tiap ada perubahan
+      - ./backend:/app
+    environment:
+      # Jika Anda menjalankan Ollama di Windows (Host), Docker mengaksesnya via URL ini
+      - OLLAMA_URL=http://host.docker.internal:11434
+    # Hapus tanda pagar (uncomment) di bawah ini JIKA Anda menggunakan GPU Nvidia & WSL2
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]

@@ -1,0 +1,35 @@
+{
+  "name": "AI Video Clipper Backend",
+  "image": "ai-clipper-app-backend:latest",
+  "build": {
+    "dockerfile": "backend/Dockerfile"
+  },
+  "workspaceFolder": "/app",
+  "postCreateCommand": "pip install pylint black pytest pytest-asyncio",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "ms-docker.docker"
+      ],
+      "settings": {
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": true,
+        "python.formatting.provider": "black",
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.python",
+          "editor.formatOnSave": true
+        }
+      }
+    }
+  },
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "FastAPI Backend",
+      "onAutoForward": "notify"
+    }
+  }
+}

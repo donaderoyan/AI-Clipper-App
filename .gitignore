@@ -1,0 +1,34 @@
+# =========================
+# Python & Backend
+# =========================
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# =========================
+# Node.js & Frontend
+# =========================
+node_modules/
+dist/
+dist-electron/
+build/
+.npm/
+
+# =========================
+# OS & Docker Files
+# =========================
+.DS_Store
+Thumbs.db
+# Jangan ignore docker-compose.yml atau Dockerfile!
+
+# =========================
+# Data & Media
+# =========================
+/data/raw/*
+/data/temp/*
+/data/output/*
+!/data/raw/.gitkeep
+!/data/temp/.gitkeep
+!/data/output/.gitkeep
