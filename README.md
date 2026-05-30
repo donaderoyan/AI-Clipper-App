@@ -1,14 +1,18 @@
 # AI Video Clipper
 
-<div style="display: inline-block; padding: 16px; background-color: #f9ad2aff; border-radius: 20px;">
-  <a href="https://saweria.co/widgets/qr?streamKey=aac631582d2cd66877dfcf8cf9ad191d" target="_blank" rel="noopener noreferrer">
-    <img src="Assets/saweria.png" alt="Dukung di Saweria" style="display: block; max-width: 280px; width: 100%;" />
-  </a>
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background-color: #f9ad2aff; border-radius: 20px; gap: 24px; flex-wrap: wrap;">
+  <div style="flex: 1 1 320px; min-width: 260px; color: #1a1a1a;">
+    <strong style="font-size: 1.05rem;">Terima kasih banyak untuk siapa pun yang ingin traktir kopi — dukunganmu sangat berarti dan membantu proyek ini terus berkembang! ☕</strong>
+    <p style="margin: 12px 0 0 0; font-size: 0.98rem; color: #222;">Scan kode QR atau klik badge untuk mengirim kopi.</p>
+  </div>
+  <div style="flex: 0 0 auto; min-width: 300px;">
+    <a href="https://saweria.co/widgets/qr?streamKey=aac631582d2cd66877dfcf8cf9ad191d" target="_blank" rel="noopener noreferrer">
+      <img src="Assets/saweria.png" alt="Dukung di Saweria" style="display: block; max-width: 300px; width: 100%; border-radius: 16px;" />
+    </a>
+  </div>
 </div>
 
 [![Dukung di Saweria](https://img.shields.io/badge/Dukung%20Saya-Saweria-orange)](https://saweria.co/widgets/qr?streamKey=aac631582d2cd66877dfcf8cf9ad191d)
-
-Terima kasih banyak untuk siapa pun yang ingin traktir kopi — dukunganmu sangat berarti dan membantu proyek ini terus berkembang! ☕
 
 > Ini adalah Web App untuk memotong video panjang menjadi video pendek vertikal (9:16) atau horizontal (16:9) secara otomatis menggunakan AI lokal. Aplikasi ini menggunakan arsitektur Local Microservice: Electron (Frontend) dan FastAPI Python (Backend).
 
