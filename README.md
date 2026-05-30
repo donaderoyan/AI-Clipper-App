@@ -5,15 +5,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="160" viewBox="0 0 1000 160" role="img" aria-label="Dukung di Saweria">
   <rect rx="20" width="100%" height="100%" fill="#f9ad2a" />
   <foreignObject x="12" y="12" width="976" height="136">
-    <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:center;justify-content:space-between;font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;">
-      <div style="flex:1;min-width:260px;padding-right:24px;color:#111;">
-        <strong style="font-size:18px;line-height:1.2;">Terima kasih banyak untuk siapa pun yang ingin traktir kopi — dukunganmu sangat berarti dan membantu proyek ini terus berkembang! ☕</strong>
-        <p style="margin:8px 0 0 0;font-size:14px;color:#111;">Scan kode QR atau klik badge untuk mengirim kopi.</p>
-      </div>
-      <div style="flex:0 0 300px;">
-        <a href="https://saweria.co/widgets/qr?streamKey=aac631582d2cd66877dfcf8cf9ad191d" target="_blank" rel="noopener noreferrer">
-          <img src="Assets/saweria.png" alt="Dukung di Saweria" style="width:300px;border-radius:12px;display:block;" />
-        </a>
+    <div xmlns="http://www.w3.org/1999/xhtml">
+      <style>
+        .saweria-banner{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial;}
+        .saweria-text{flex:1 1 320px;min-width:260px;padding-right:24px;color:#111}
+        .saweria-title{font-size:18px;line-height:1.2;font-weight:700}
+        .saweria-desc{margin:8px 0 0 0;font-size:14px;color:#111}
+        .saweria-qr{flex:0 0 300px;min-width:300px}
+        .saweria-img{width:300px;border-radius:12px;display:block}
+      </style>
+      <div class="saweria-banner">
+        <div class="saweria-text">
+          <strong class="saweria-title">Terima kasih banyak untuk siapa pun yang ingin traktir kopi — dukunganmu sangat berarti dan membantu proyek ini terus berkembang! ☕</strong>
+          <p class="saweria-desc">Scan kode QR atau klik badge untuk mengirim kopi.</p>
+        </div>
+        <div class="saweria-qr">
+          <a href="https://saweria.co/widgets/qr?streamKey=aac631582d2cd66877dfcf8cf9ad191d" target="_blank" rel="noopener noreferrer">
+            <img src="Assets/saweria.png" alt="Dukung di Saweria" class="saweria-img" />
+          </a>
+        </div>
       </div>
     </div>
   </foreignObject>
