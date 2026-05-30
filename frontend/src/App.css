@@ -1,0 +1,164 @@
+:root {
+  --bg-dark: #121212;
+  --bg-panel: #1e1e1e;
+  --bg-sidebar: #171717;
+  --text-main: #f3f3f3;
+  --text-muted: #a0a0a0;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --danger: #ef4444;
+  --border: #333333;
+  --success: #22c55e;
+  --input-bg: #2d2d2d;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Left Panel */
+.left-panel {
+  width: 400px;
+  min-width: 400px;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.panel-header {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+
+.brand-icon {
+  color: var(--primary);
+}
+
+.input-form {
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.half {
+  flex: 1;
+}
+
+label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+input, select, textarea {
+  background-color: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+textarea {
+  resize: vertical;
+}
+
+.btn-submit {
+  margin-top: 8px;
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+}
+
+.btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Right Panel */
+.right-panel {
+  flex: 1;
+  background-color: var(--bg-dark);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-panel);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+/* Terminal overrides since we placed it in a wrapper */
+.terminal-wrapper .terminal-container {
+  margin-top: 0;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  height: 100% !important;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}

@@ -1,0 +1,40 @@
+.terminal-container {
+  display: flex;
+  flex-direction: column;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  margin-top: 1rem;
+  border: 1px solid #333;
+}
+
+.terminal-header {
+  background-color: #2d2d2d;
+  padding: 8px 16px;
+  border-bottom: 1px solid #1e1e1e;
+  display: flex;
+  align-items: center;
+}
+
+.terminal-title {
+  color: #a0a0a0;
+  font-size: 0.8rem;
+  font-family: monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.terminal-body {
+  flex: 1;
+  padding: 12px;
+  overflow: hidden; /* xterm.js handles its own scrolling usually */
+}
+
+/* Ensure xterm fits nicely */
+.xterm {
+  height: 100%;
+}
+.xterm-viewport {
+  border-radius: 0 0 8px 8px;
+}

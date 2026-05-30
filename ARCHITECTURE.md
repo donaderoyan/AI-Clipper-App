@@ -37,8 +37,28 @@ Sistem ini menggunakan arsitektur Hybrid-Container. Antarmuka pengguna (Electron
       - `FFmpeg` memotong video, menyesuaikan rasio, dan menempelkan subtitle.
    - Semua file ditulis ke folder `/app/data` di dalam container.
 4. **Volume Mapping:** Folder `/app/data` di container dipetakan ke folder `/data` di Windows. Electron dapat langsung melihat dan membuka video hasil render dari folder tersebut.
-5. **Response/Polling:** Selama proses, frontend terus melakukan polling ke endpoint `/status` atau mendengarkan WebSockets untuk memperbarui *progress bar*. Dan juga frontend akan menampilkan Log proses pipeline yang lengkap, rapi dan jelas. Dimulai dari poses download video yang menampilkan kecepatan download, informasi size video, dan ETA, Lalu juga ada persentasi download dan dilanjutkan hingga semua proses pipeline berakhir akan ditampilkan di terminal UI frontend. UI Frontned akan ada terminal yang menampilkan informasi ini.
+5. **Response/Polling:** Selama proses, frontend terus melakukan polling ke endpoint `/status` atau mendengarkan WebSockets untuk memperbarui *progress bar*.
+   - Frontend S
 6. **Output:** Video selesai dirender di folder lokal, UI menampilkan notifikasi sukses. File subtitle .srt tersimpan dalam folder yang sama dengan video.
+
+## Frondend UI/UX
+1. Single page dibagi menjadi 2 bagian, bagian kiri untuk form user dan bagian kanan untuk terminal UI.
+2. Bagian kiri dibuat sebagai sidebar. Logo aplikasi menyatu dibagian atas, dibagian bawahnya form user.
+3. Bagian kanan dibagi menjadi 2, bagian atas mempilkan terminal UI bagian bawah untuk menampilan hasil video clipping.
+   	**Bagian Terminal UI:**
+			Informasi yang ditampilkan seharusnya informatif, user friendly, clean, dan menarik. Saat menampilkan status pipeline di terminal UI, yang berubah itu datanya jangan langsung print berulang-ulang. Informasi yang ditampilan berdasarkan proses pipeline/job status dan setiap bagian prosesnya harus ganti line. Berikut adalah job status:
+				* Downloading video
+						- Tampilkan persentase download
+				* Proses mengekstrak audio dan transkripsi video
+						- Tampilkan loading indicator proses mengekstrak audio dan transkripsi video
+				* Menganalisis transkrip video
+						- Tampilkan loading indicator proses untuk transkrip video
+				* Merender klip
+						- Tampilkan loading indicator dan presentase proses untuk merender klip video.
+						- Sesuaikan dengan jumlah output yang diinginkan.
+				* Proses selesai
+		**Bagian Hasil Video Clipping:**
+
 
 ## Struktur Folder (Directory Tree)
 

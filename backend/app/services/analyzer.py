@@ -1,5 +1,6 @@
 import os
 import re
+import json
 from typing import List, Dict, Optional
 
 import requests
@@ -50,20 +51,20 @@ def extract_highlights_from_text(transcript: str, prompt_context: str, segments:
         content = response.json()
         text = content.get("choices", [])[0].get("text", "") if isinstance(content.get("choices"), list) else content.get("output", "")
     except Exception:
-        return fallback_segments(segments)
+        return fallback_segments(segments, output_count, target_duration)
 
     highlights = parse_highlight_output(text)
     if highlights:
         return highlights
-    return fallback_segments(segments)
+    return fallback_segments(segments, output_count, target_duration)
 
 
 def parse_highlight_output(output: str) -> List[Dict[str, float]]:
     try:
-        json_candidates = re.search(r"\[(\{.*\})\]", output, re.DOTALL)
+        json_candidates = re.search(r"\[\s*\{.*?\}\s*\]", output, re.DOTALL)
         if json_candidates:
             candidate = output[json_candidates.start():json_candidates.end()]
-            return eval(candidate)
+            return json.loads(candidate)
     except Exception:
         pass
 
@@ -75,9 +76,21 @@ def parse_highlight_output(output: str) -> List[Dict[str, float]]:
     return timestamps
 
 
-def fallback_segments(segments: List[dict]) -> List[Dict[str, float]]:
+def fallback_segments(segments: List[dict], output_count: int = 1, target_duration: Optional[int] = None) -> List[Dict[str, float]]:
     if not segments:
-        return [{"start": 0.0, "end": 20.0, "label": "default"}]
+        return [{"start": 0.0, "end": 20.0, "label": "default"} for _ in range(output_count)]
 
-    candidate = segments[0]
-    return [{"start": float(candidate.get("start", 0.0)), "end": float(min(candidate.get("start", 0.0) + 25.0, candidate.get("end", candidate.get("start", 0.0) + 25.0))), "label": "fallback"}]
+    fallbacks = []
+    duration = target_duration if target_duration else 25.0
+    
+    total_segments = len(segments)
+    step = max(1, total_segments // output_count)
+    
+    for i in range(output_count):
+        idx = min(i * step, total_segments - 1)
+        candidate = segments[idx]
+        start_time = float(candidate.get("start", 0.0))
+        end_time = float(min(start_time + duration, segments[-1].get("end", start_time + duration)))
+        fallbacks.append({"start": start_time, "end": end_time, "label": f"fallback_{i+1}"})
+        
+    return fallbacks
