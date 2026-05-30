@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from app.api.routes import router as api_router
-from app.utils.storage import ensure_data_directories
+from app.utils.storage import ensure_data_directories, OUTPUT_DIR
 
 # Inisialisasi Aplikasi FastAPI
 app = FastAPI(
@@ -24,6 +25,7 @@ app.add_middleware(
 ensure_data_directories()
 
 app.include_router(api_router)
+app.mount("/media", StaticFiles(directory=str(OUTPUT_DIR)), name="media")
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

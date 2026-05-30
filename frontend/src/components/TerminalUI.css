@@ -15,6 +15,7 @@
   border-bottom: 1px solid #1e1e1e;
   display: flex;
   align-items: center;
+  gap: 16px;
 }
 
 .terminal-title {
@@ -23,6 +24,55 @@
   font-family: monospace;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.terminal-global-progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #1e1e1e;
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid #333;
+}
+
+.progress-info {
+  display: flex;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 100px;
+}
+
+.progress-bar-bg {
+  flex: 1;
+  height: 6px;
+  background-color: var(--bg-dark);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: var(--success);
+  transition: width 0.3s ease;
+}
+
+.header-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: header-spin 1s linear infinite;
+}
+
+@keyframes header-spin {
+  to { transform: rotate(360deg); }
 }
 
 .terminal-body {

@@ -19,6 +19,7 @@ class JobResult:
         self.job_id = job_id
         self.status: JobState = JobState.queued
         self.message: str = "Menunggu pemrosesan."
+        self.step: str = ""
         self.progress: int = 0
         self.output_files: List[str] = []
         self.error: Optional[str] = None
@@ -30,6 +31,7 @@ class JobResult:
             "job_id": self.job_id,
             "status": self.status,
             "message": self.message,
+            "step": self.step,
             "progress": self.progress,
             "output_files": self.output_files,
             "error": self.error,
@@ -84,13 +86,15 @@ _last_in_place = False
 spinner_frames = ['/', '-', '\\', '|']
 spinner_idx = 0
 
-def update_job_status(job_id: str, status: JobState, message: str, progress: Optional[int] = None, error: Optional[str] = None, output_files: Optional[List[str]] = None, in_place: bool = True) -> None:
+def update_job_status(job_id: str, status: JobState, message: str, step: str = "", progress: Optional[int] = None, error: Optional[str] = None, output_files: Optional[List[str]] = None, in_place: bool = True) -> None:
     global spinner_idx, _last_in_place
     job = jobs.get(job_id)
     if not job:
         return
     job.status = status
     job.message = message
+    if step:
+        job.step = step
     if progress is not None:
         job.progress = progress
     if error:

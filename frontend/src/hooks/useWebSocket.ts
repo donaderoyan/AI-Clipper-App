@@ -18,17 +18,15 @@ export function useWebSocket(url: string | null) {
       ws.current.onopen = () => {
         setStatus('connected');
         setError(null);
-        notifyListeners(`\x1b[32m[SYSTEM] Connected to job stream: ${url}\x1b[0m\r\n`);
       };
       
       ws.current.onclose = () => {
         setStatus('disconnected');
-        notifyListeners(`\x1b[33m[SYSTEM] Disconnected from stream\x1b[0m\r\n`);
       };
       
       ws.current.onerror = () => {
         setError(new Error('WebSocket error occurred'));
-        notifyListeners(`\x1b[31m[SYSTEM] Connection Error\x1b[0m\r\n`);
+        notifyListeners(JSON.stringify({ status: 'ERROR', message: 'Connection Error', step: 'error' }));
       };
       
       ws.current.onmessage = (event) => {
@@ -38,7 +36,7 @@ export function useWebSocket(url: string | null) {
     } catch (err) {
       setStatus('disconnected');
       setError(err instanceof Error ? err : new Error('Unknown error'));
-      notifyListeners(`\x1b[31m[SYSTEM] Failed to connect: ${err}\x1b[0m\r\n`);
+      notifyListeners(JSON.stringify({ status: 'ERROR', message: `Failed to connect: ${err}`, step: 'error' }));
     }
   };
 
@@ -64,7 +62,7 @@ export function useWebSocket(url: string | null) {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       ws.current.send(message);
     } else {
-      notifyListeners(`\x1b[31m[SYSTEM] Cannot send message, not connected.\x1b[0m\r\n`);
+      notifyListeners(JSON.stringify({ status: 'ERROR', message: 'Cannot send message, not connected.', step: 'error' }));
     }
   };
 

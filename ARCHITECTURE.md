@@ -41,24 +41,42 @@ Sistem ini menggunakan arsitektur Hybrid-Container. Antarmuka pengguna (Electron
    - Frontend S
 6. **Output:** Video selesai dirender di folder lokal, UI menampilkan notifikasi sukses. File subtitle .srt tersimpan dalam folder yang sama dengan video.
 
-## Frondend UI/UX
-1. Single page dibagi menjadi 2 bagian, bagian kiri untuk form user dan bagian kanan untuk terminal UI.
+## Frontend UI/UX
+1. Single page dibagi menjadi 2 bagian, bagian kiri untuk form user dan bagian kanan untuk terminal UI. Tampilan harus clean, modern, rapi, user friendly, dan menarik.
 2. Bagian kiri dibuat sebagai sidebar. Logo aplikasi menyatu dibagian atas, dibagian bawahnya form user.
-3. Bagian kanan dibagi menjadi 2, bagian atas mempilkan terminal UI bagian bawah untuk menampilan hasil video clipping.
-   	**Bagian Terminal UI:**
-			Informasi yang ditampilkan seharusnya informatif, user friendly, clean, dan menarik. Saat menampilkan status pipeline di terminal UI, yang berubah itu datanya jangan langsung print berulang-ulang. Informasi yang ditampilan berdasarkan proses pipeline/job status dan setiap bagian prosesnya harus ganti line. Berikut adalah job status:
+3. Bagian kanan dibagi menjadi 2 bagian, bagian atas mempilkan terminal UI, bagian bawah untuk menampilan hasil video clipping.
+   	**Bagian Terminal UI 1:**
+			Informasi yang ditampilkan seharusnya informatif, user friendly, clean, dan menarik. Saat menampilkan status pipeline di terminal UI, yang berubah itu datanya jangan langsung print berulang-ulang. 
+			- Bagian header terminal menampilkan loading indicator dan presentase total proses keseluruhan dari job pipeline. 
+			- Informasi yang ditampilan berdasarkan proses pipeline/job status dan setiap bagian prosesnya harus ganti line. Berikut adalah job status:
 				* Downloading video
-						- Tampilkan persentase download
+						- Tampilkan persentase download video
+						- Setelah status selesai, indicator loading berubah menjadi tanda centang.
+						- Ditampilkan dalam 1 line dan yang berubah adalah datanya. Jangan print line baru berulang-ulang!.
 				* Proses mengekstrak audio dan transkripsi video
-						- Tampilkan loading indicator proses mengekstrak audio dan transkripsi video
+						- Tampilkan loading indicator proses mengekstrak audio dan transkripsi video.
+						- Indicator loading tetap berputar hingga status berubah.
+						- Setelah status selesai, indicator loading berubah menjadi tanda centang.
 				* Menganalisis transkrip video
-						- Tampilkan loading indicator proses untuk transkrip video
+						- Tampilkan loading indicator proses untuk transkrip video.
+						- Indicator loading tetap berputar hingga status berubah.
+						- Setelah status selesai, indicator loading berubah menjadi tanda centang.
 				* Merender klip
-						- Tampilkan loading indicator dan presentase proses untuk merender klip video.
+						- Tampilkan loading indicator untuk merender klip video.
+						- Indicator loading tetap berputar hingga status berubah.
+						- Setelah status selesai, indicator loading berubah menjadi tanda centang.
+						- Satuan range durasi ditampilkan dalam format HH:mm:ss.
 						- Sesuaikan dengan jumlah output yang diinginkan.
-				* Proses selesai
+				* Proses selesai.
 		**Bagian Hasil Video Clipping:**
-
+			- Membaca dimana output video dan subtitle disimpan di local, lalu tampilkan di bagian hasil video clipping.
+			- Bagian ini akan menampilkan hasil dari video clipping dalam bentuk card dengan ukuran yang kecil dan disesuaikan dari rasio 1:1 lalu ditambah informasi detail video yang menyatu di bagian bawah card.
+			- Dalam setiap card ada bagian detail video yang menampilkan judul video, durasi video, nama file subtitle .srt.
+			- User dapat memutar video. User klik salah satu dari card video klip, lalu pemutar video akan muncul dalam bentuk popup dialog. Berikut adalah ketentuan popup dialog pemutar video:
+				* User memiliki full kontrol pada pemutar video seperti play, pause, volume, dll.
+				* Saat dialog pemutar video terbuka, ada semacam overlay di background yang mencegah user melakukan action secara tidak sengaja. User harus menutup dialog pemutar video untuk melakukan action lagi.
+				* Setelah dialog pemutar video ditutup, season video sebelumnya sudah harus bersih.
+4. Setiap kali User melakukan proses baru, Terminal UI dan bagian hasil video clipping harus clear lagi dan bersih dari season sebelumnya. 
 
 ## Struktur Folder (Directory Tree)
 

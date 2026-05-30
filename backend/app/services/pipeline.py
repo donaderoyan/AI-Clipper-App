@@ -19,6 +19,9 @@ def time_to_sec(t_str: str) -> float:
         sec += float(p) * (60 ** i)
     return sec
 
+def format_time(sec: float) -> str:
+    s = int(sec)
+    return f"{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
 
 def parse_custom_timestamps(ts_str: str) -> List[Dict[str, float]]:
     results = []
@@ -42,7 +45,7 @@ def parse_custom_timestamps(ts_str: str) -> List[Dict[str, float]]:
 
 def run_ai_pipeline(job_id: str, request_data) -> None:
     try:
-        update_job_status(job_id, JobState.running, "Memulai pipeline AI...", progress=5)
+        update_job_status(job_id, JobState.running, "Memulai pipeline AI...", step="init", progress=5)
 
         raw_dir = RAW_DIR / job_id
         work_dir = WORK_DIR / job_id
@@ -51,18 +54,18 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
         work_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        update_job_status(job_id, JobState.running, "Mengunduh video...", progress=10)
+        update_job_status(job_id, JobState.running, "Mempersiapkan unduhan video...", step="prepare_download", progress=8)
         
         def dl_progress(percent_str):
-            update_job_status(job_id, JobState.running, f"Mengunduh video... {percent_str}", progress=10, in_place=True)
+            update_job_status(job_id, JobState.running, f"Mengunduh video... {percent_str}", step="download", progress=10, in_place=True)
             
         video_path = download_video(request_data.url, raw_dir, progress_callback=dl_progress)
         
-        update_job_status(job_id, JobState.running, "Mengekstrak audio dan transkripsi video...", progress=40, in_place=True)
+        update_job_status(job_id, JobState.running, "Mengekstrak audio dan transkripsi video...", step="transcribe", progress=40, in_place=True)
         transcript_text, transcript_path, segments = transcribe_video(video_path, work_dir)
         set_job_artifacts(job_id, str(video_path), str(transcript_path))
 
-        update_job_status(job_id, JobState.running, "Menganalisis transkrip untuk menemukan highlight...", progress=70, in_place=True)
+        update_job_status(job_id, JobState.running, "Menganalisis transkrip untuk menemukan highlight...", step="analyze", progress=70, in_place=True)
         target_duration = getattr(request_data, 'target_duration', None)
         output_count = getattr(request_data, 'output_count', None)
 
@@ -128,7 +131,9 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
             output_srt_path = output_path.with_suffix(".srt")
 
             prog = 80 + int((i / total_clips) * 15)
-            update_job_status(job_id, JobState.running, f"Merender klip {clip['start']}s hingga {clip['end']}s...", progress=prog)
+            start_fmt = format_time(float(clip["start"]))
+            end_fmt = format_time(float(clip["end"]))
+            update_job_status(job_id, JobState.running, f"Merender klip {start_fmt} hingga {end_fmt}...", step=f"render_{i}", progress=prog)
             
             generate_clip_srt(segments, float(clip["start"]), float(clip["end"]), output_srt_path)
             
@@ -142,7 +147,7 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
             output_files.append(str(output_path))
             output_files.append(str(output_srt_path))
 
-        update_job_status(job_id, JobState.success, "Proses selesai.", progress=100, output_files=output_files)
+        update_job_status(job_id, JobState.success, "Proses selesai.", step="done", progress=100, output_files=output_files)
     except Exception as exc:
         error_message = str(exc)
         if hasattr(exc, "stderr") and exc.stderr:
@@ -151,4 +156,4 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
             except Exception:
                 error_message = str(exc.stderr)
         traceback.print_exc()
-        update_job_status(job_id, JobState.failed, "Terjadi kesalahan selama pemrosesan.", error=error_message)
+        update_job_status(job_id, JobState.failed, "Terjadi kesalahan selama pemrosesan.", step="error", error=error_message)
