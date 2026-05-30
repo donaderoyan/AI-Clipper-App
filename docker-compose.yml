@@ -14,8 +14,8 @@ services:
     environment:
       # Jika Anda menjalankan Ollama di Windows (Host), Docker mengaksesnya via URL ini
       - OLLAMA_URL=http://host.docker.internal:11434
-    env_file:
-      - .env
+    # env_file:
+      # - .env
 
   frontend:
     build:
