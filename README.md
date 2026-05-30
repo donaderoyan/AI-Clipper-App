@@ -1,6 +1,6 @@
 # AI Video Clipper
 
-Kopi + support kalian = semangatku nambah! 🚀 [link Saweria kamu](https://saweria.co/odonnnn)
+Kopi + support kalian = semangatku nambah! 🚀 [link Saweria - https://saweria.co/odonnnn](https://saweria.co/odonnnn)
 
 [![Beli kopi di Saweria](https://img.shields.io/badge/Dukung%20Saya-Saweria-orange)](https://saweria.co/odonnnn)
 
