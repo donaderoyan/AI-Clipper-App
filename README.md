@@ -7,7 +7,7 @@
   </div>
   <div style="flex: 0 0 auto; min-width: 300px;">
     <a href="https://saweria.co/widgets/qr?streamKey=aac631582d2cd66877dfcf8cf9ad191d" target="_blank" rel="noopener noreferrer">
-      <img src="Assets/saweria.png" alt="Dukung di Saweria" style="display: block; max-width: 300px; width: 100%; border-radius: 16px;" />
+      <img src="Assets/saweria.png" alt="Dukung di Saweria" style="display: block; max-width: 300px; width: 300px; border-radius: 16px;" />
     </a>
   </div>
 </div>
