@@ -36,12 +36,12 @@ Aplikasi ini dirancang khusus untuk memproses:
 
 ## Prerequisites
 - **Docker Desktop** terinstall dan berjalan (WSL2 direkomendasikan di Windows)
-- **Node.js 16+** (untuk frontend)
-- **Ollama** running di Windows (untuk Local LLM)
+- **Ollama** running di Docker (untuk Local LLM)
+- **Node.js** hanya diperlukan jika Anda ingin menjalankan frontend secara lokal tanpa Docker
 
 ## Quick Start (Docker-first)
 
-Ini repos menggunakan Docker untuk backend agar semua dependency native (mis. `yt-dlp`, `ffmpeg`) tidak perlu diinstall secara lokal.
+Semua layanan frontend dan backend bisa dijalankan sepenuhnya di Docker. Ini membantu menghindari masalah dependensi lokal seperti `cv2` atau `ffmpeg`.
 
 1. Build dan jalankan semua layanan dengan Docker Compose:
 
@@ -49,7 +49,27 @@ Ini repos menggunakan Docker untuk backend agar semua dependency native (mis. `y
 docker-compose up --build
 ```
 
-2. Jalankan frontend secara lokal:
+2. Buka aplikasi frontend di browser:
+
+```text
+http://localhost:5173
+```
+
+Backend akan tersedia di:
+
+```text
+http://localhost:8000
+```
+
+3. Hentikan layanan dengan:
+
+```bash
+docker-compose down
+```
+
+### Optional: Jalankan frontend secara lokal
+
+Jika Anda ingin tetap menjalankan frontend tanpa Docker, gunakan opsi ini:
 
 ```bash
 cd frontend
@@ -57,7 +77,7 @@ npm install
 npm run dev
 ```
 
-Backend akan tersedia di `http://localhost:8000`.
+Namun jika tujuan Anda adalah memindahkan seluruh ekosistem ke Docker, langkah ini tidak diperlukan.
 
 ---
 

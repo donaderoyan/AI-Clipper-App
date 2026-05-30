@@ -111,7 +111,6 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
                 seen.add(k)
                 unique_clips.append(clip)
 
-        crop_params = calculate_crop(video_path, request_data.aspect_ratio)
         output_files = []
         
         total_clips = len(unique_clips)
@@ -120,6 +119,9 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
             start_val = int(clip['start'])
             end_val = int(clip['end'])
             dur_val = end_val - start_val
+            
+            # Calculate smart crop dynamically for this specific clip
+            crop_params = calculate_crop(video_path, request_data.aspect_ratio, float(clip["start"]), float(clip["end"]))
             
             if label.startswith('custom_'):
                 desc_name = f"custom_timestamp_{start_val}s_to_{end_val}s"

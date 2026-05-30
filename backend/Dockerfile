@@ -1,5 +1,5 @@
 # Gunakan tag spesifik (bookworm) agar repositori apt lebih stabil
-FROM python:3.10-slim-bookworm
+FROM python:3.12-slim-bookworm
 
 # Tambahkan argumen untuk menonaktifkan interaksi frontend selama instalasi
 ENV DEBIAN_FRONTEND=noninteractive

@@ -31,7 +31,7 @@ Sistem ini menggunakan arsitektur Hybrid-Container. Antarmuka pengguna (Electron
    - Python di dalam Docker mengeksekusi pipeline:
       - `yt-dlp` Unduh video simpan ke `/app/data/raw/` (otomatis muncul di Windows).
       - `faster-whisper` mengekstrak audio menjadi teks (.srt).
-      - Analisis teks dengan mengirim HTTP Request keluar container menuju `http://host.docker.internal:11434` (Ollama di Windows).
+      - Analisis teks dengan mengirim HTTP Request keluar container menuju `http://host.docker.internal:11434` (Ollama di Docker container).
       - `Ollama (LLM)` menganalisis teks untuk menemukan *timestamp* terbaik (momen puncak/menarik).
       - `OpenCV` menganalisis frame untuk *smart panning* (jika mode vertikal).
       - `FFmpeg` memotong video, menyesuaikan rasio, dan menempelkan subtitle.

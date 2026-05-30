@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -18,7 +16,28 @@ services:
       - OLLAMA_URL=http://host.docker.internal:11434
     env_file:
       - .env
-    # Hapus tanda pagar (uncomment) di bawah ini JIKA Anda menggunakan GPU Nvidia & WSL2
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ai_clipper_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+    # Jika Anda ingin menjalankan versi build frontend sebagai static site,
+    # ganti command di atas dengan container web server (nginx) setelah build.
+    # Untuk sekarang, setup ini memudahkan pengembangan React/Vite di Docker.
+
+    # Hapus tanda pagar (uncomment) di bawah ini jika Anda menggunakan GPU Nvidia & WSL2
     # deploy:
     #   resources:
     #     reservations:

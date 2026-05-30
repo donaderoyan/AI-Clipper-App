@@ -5,3 +5,10 @@ __pycache__/
 venv/
 env/
 .env
+
+# Ignore Docker data directories and build artifacts
+data/
+*.log
+*.sqlite3
+.git
+node_modules/
