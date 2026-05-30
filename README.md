@@ -1,18 +1,23 @@
 # AI Video Clipper
 
-<div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background-color: #f9ad2aff; border-radius: 20px; gap: 24px; flex-wrap: wrap;">
-  <div style="flex: 1 1 320px; min-width: 260px; color: #1a1a1a;">
-    <strong style="font-size: 1.05rem;">Terima kasih banyak untuk siapa pun yang ingin traktir kopi — dukunganmu sangat berarti dan membantu proyek ini terus berkembang! ☕</strong>
-    <p style="margin: 12px 0 0 0; font-size: 0.98rem; color: #222;">Scan kode QR atau klik badge untuk mengirim kopi.</p>
-  </div>
-  <div style="flex: 0 0 auto; min-width: 300px;">
-    <a href="https://saweria.co/widgets/qr?streamKey=aac631582d2cd66877dfcf8cf9ad191d" target="_blank" rel="noopener noreferrer">
-      <img src="Assets/saweria.png" alt="Dukung di Saweria" style="display: block; max-width: 300px; width: 300px; border-radius: 16px;" />
-    </a>
-  </div>
-</div>
-
 [![Dukung di Saweria](https://img.shields.io/badge/Dukung%20Saya-Saweria-orange)](https://saweria.co/widgets/qr?streamKey=aac631582d2cd66877dfcf8cf9ad191d)
+
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="160" viewBox="0 0 1000 160" role="img" aria-label="Dukung di Saweria">
+  <rect rx="20" width="100%" height="100%" fill="#f9ad2a" />
+  <foreignObject x="12" y="12" width="976" height="136">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:center;justify-content:space-between;font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;">
+      <div style="flex:1;min-width:260px;padding-right:24px;color:#111;">
+        <strong style="font-size:18px;line-height:1.2;">Terima kasih banyak untuk siapa pun yang ingin traktir kopi — dukunganmu sangat berarti dan membantu proyek ini terus berkembang! ☕</strong>
+        <p style="margin:8px 0 0 0;font-size:14px;color:#111;">Scan kode QR atau klik badge untuk mengirim kopi.</p>
+      </div>
+      <div style="flex:0 0 300px;">
+        <a href="https://saweria.co/widgets/qr?streamKey=aac631582d2cd66877dfcf8cf9ad191d" target="_blank" rel="noopener noreferrer">
+          <img src="Assets/saweria.png" alt="Dukung di Saweria" style="width:300px;border-radius:12px;display:block;" />
+        </a>
+      </div>
+    </div>
+  </foreignObject>
+</svg>
 
 > Ini adalah Web App untuk memotong video panjang menjadi video pendek vertikal (9:16) atau horizontal (16:9) secara otomatis menggunakan AI lokal. Aplikasi ini menggunakan arsitektur Local Microservice: Electron (Frontend) dan FastAPI Python (Backend).
 
