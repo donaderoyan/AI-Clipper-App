@@ -41,9 +41,9 @@ Aplikasi ini dirancang khusus untuk memproses:
 
 ## Quick Start (Docker-first)
 
-Semua layanan frontend dan backend bisa dijalankan sepenuhnya di Docker. Ini membantu menghindari masalah dependensi lokal seperti `cv2` atau `ffmpeg`.
+Semua service frontend dan backend bisa dijalankan sepenuhnya di Docker. Ini membantu menghindari masalah dependensi lokal seperti `cv2` atau `ffmpeg`.
 
-1. Build dan jalankan semua layanan dengan Docker Compose:
+1. Build dan jalankan semua service dengan Docker Compose:
 
 ```bash
 docker-compose up --build
@@ -61,7 +61,7 @@ Backend akan tersedia di:
 http://localhost:8000
 ```
 
-3. Hentikan layanan dengan:
+3. Hentikan service dengan:
 
 ```bash
 docker-compose down
@@ -124,11 +124,13 @@ curl 'http://localhost:8000/api/v1/status/{job_id}'
 
 ```
 /ai-clipper-app
-├── frontend/          # Electron + React + TypeScript
-├── backend/           # FastAPI + Python (Docker)
-├── data/              # Shared volume (raw, temp, output)
-├── docker-compose.yml # Orkestrasi Docker
-└── README.md          # File ini
+├── frontend/              # Electron + React + TypeScript
+├── backend/               # FastAPI + Python (Docker)
+├── data/                  # Shared volume untuk raw, temp, output
+├── docker-compose.yml     # Orkestrasi Docker
+├── README.md              # File ini
+├── VISION_PANNING_GUIDE.md # Catatan smart panning
+└── ARCHITECTURE.md        # Diagram sistem dan arsitektur
 ```
 
 ## Troubleshooting
@@ -171,36 +173,44 @@ Jika Anda lebih suka tidak mengekspor cookie, unduhan video tersebut mungkin tid
 **Solusi:** Backend Dockerfile tidak memerlukan `git` lagi. Cukup jalankan:
 
 ```bash
-docker-compose build --no-cache backend
+docker compose build --no-cache backend
 ```
 
 ### Ollama Connection Error
 
 Pastikan:
-- Ollama running di Windows: `ollama serve`
-- Backend Docker dapat mengakses host melalui `http://host.docker.internal:11434`
+- Ollama sudah berjalan di Docker atau host, dan tersedia pada `http://host.docker.internal:11434`
+- Backend Docker dapat mengakses `http://host.docker.internal:11434`
 - Sudah ada model di Ollama: `ollama pull llama2` (atau model lain)
+
+Jika menggunakan Ollama di container terpisah, pastikan port 11434 sudah dibuka dan volume model tersedia.
 
 ## Development Workflow
 
-### Jika pakai Dev Container (Option A) - Recommended:
-1. Semua dependencies sudah di container
-2. Cukup edit file → auto-reload via volume mount
-3. Tidak perlu khawatir dengan `.venv` atau system dependencies
+### Docker-first Workflow (Recommended)
+1. Jalankan semua service dengan Docker Compose dari root project:
+```bash
+docker compose up --build
+```
+2. Edit kode di `backend/` atau `frontend/`, lalu periksa hasil di browser dan log container
+3. Backend dependency sudah terinstall di container; tidak perlu `.venv` untuk workflow Docker
+4. Jika perlu, jalankan frontend secara lokal untuk debugging UI cepat
 
-### Jika pakai Local Development (Option B):
-1. **Backend Changes:** Edit di `/backend/app/services/` → jalankan ulang manual atau gunakan `--reload` flag
-2. **Frontend Changes:** Edit di `/frontend/src/` → auto-reload via Vite
-3. **requirements.txt Changes:** Reinstall dengan `pip install -r backend/requirements.txt`
+### Optional Local Development
+Jika Anda memilih mengembangkan lokal:
+1. **Backend lokal:** buat `.venv` dan install dependency lokal
+2. **Frontend lokal:** jalankan Vite seperti biasa
+3. Proses Docker masih direkomendasikan untuk menjalankan backend secara konsisten
 
 ## Environment Variables
 
-### Option A: Dev Container
-- Menggunakan env dari `docker-compose.yml`
-- `OLLAMA_URL=http://host.docker.internal:11434` (sudah default)
+### Docker Compose / Docker-first
+- Backend container menggunakan env dari `docker-compose.yml`
+- `OLLAMA_URL=http://host.docker.internal:11434` untuk akses Ollama dari dalam container
+- Jika perlu cookies yt-dlp, set `YT_COOKIES_FILE=/app/data/cookies.txt`
 
-### Option B: Local Development
-- Gunakan `.env` file di root (optional):
+### Local Development
+Jika menjalankan backend lokal, gunakan `.env` di root:
 ```env
 OLLAMA_URL=http://localhost:11434
 ```
@@ -210,38 +220,47 @@ OLLAMA_URL=http://localhost:11434
 `.venv/` sudah di `.gitignore`, jadi folder ini:
 - **TIDAK** akan di-commit ke Git
 - **TIDAK** perlu di-share ke repository
-- Jika clone project, folder ini harus dibuat ulang dengan `python -m venv .venv`
+- Dibuat hanya jika Anda menjalankan backend secara lokal
 
-**Jika menggunakan Dev Container (Option A), Anda tidak perlu `.venv` sama sekali** - semua ada di Docker.
+Jika menggunakan Docker Compose atau Dev Container, `.venv` tidak diperlukan.
 
 ## Command Shortcuts
 
-**Dev Container (Option A):**
+**Docker-first:**
 ```bash
-# Semua command berjalan di dalam container
-# Backend sudah running otomatis
-# Hanya perlu jalankan frontend di terminal baru
-cd frontend && npm run dev
+# Build and start everything
+docker compose up --build
+
+# Restart services after changes
+docker compose restart
+
+# Tail backend logs
+docker compose logs -f backend
 ```
 
-**Local Development + Docker Frontend (Option B):**
+**Optional Local Frontend:**
 ```bash
-# Terminal 1: Backend lokal
-.venv\Scripts\activate
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-# Terminal 2: Frontend
 cd frontend
+npm install
 npm run dev
+```
+
+**Optional Local Backend:**
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 **Docker CLI:**
 ```bash
 # Build backend image
-docker-compose build backend
+docker compose build backend
 
-# Run backend container
-docker-compose up backend
+# Run backend container only
+docker compose up backend
 
 # Cleanup
 docker system prune -a --volumes
