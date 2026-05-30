@@ -6,7 +6,7 @@ from .analyzer import extract_highlights_from_text
 from .downloader import download_video
 from .renderer import render_clip, safe_filename
 from .transcriber import transcribe_video, generate_clip_srt
-from .vision import calculate_crop
+from .vision import calculate_crop, calculate_crop_path
 from .job_manager import JobState, update_job_status, set_job_artifacts
 from ..utils.storage import RAW_DIR, WORK_DIR, OUTPUT_DIR
 
@@ -121,7 +121,13 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
             dur_val = end_val - start_val
             
             # Calculate smart crop dynamically for this specific clip
-            crop_params = calculate_crop(video_path, request_data.aspect_ratio, float(clip["start"]), float(clip["end"]))
+            target_width, target_height, crop_positions = calculate_crop_path(
+                video_path,
+                request_data.aspect_ratio,
+                float(clip["start"]),
+                float(clip["end"]),
+            )
+            crop_params = (target_width, target_height, crop_positions)
             
             if label.startswith('custom_'):
                 desc_name = f"custom_timestamp_{start_val}s_to_{end_val}s"
