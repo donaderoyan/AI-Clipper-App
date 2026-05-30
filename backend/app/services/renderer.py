@@ -11,7 +11,6 @@ def render_clip(
     start: float,
     end: float,
     crop_params: Tuple[int, int, int, int],
-    subtitle_path: Optional[Path] = None,
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     width, height, x, y = crop_params
@@ -23,11 +22,6 @@ def render_clip(
 
     if width and height and (x or y or width != 0):
         video_stream = video_stream.crop(x, y, width, height)
-
-    if subtitle_path and subtitle_path.exists():
-        # ffmpeg requires escaping backslashes and colons in paths for filters
-        subtitle_arg = str(subtitle_path).replace("\\", "/").replace(":", "\\:")
-        video_stream = video_stream.filter("subtitles", subtitle_arg)
 
     ffmpeg_output = ffmpeg.output(
         video_stream,

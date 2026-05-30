@@ -1,7 +1,7 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
-from app.services.job_manager import create_job, get_job
+from app.services.job_manager import create_job, get_job, ws_manager
 from app.services.pipeline import run_ai_pipeline
 
 router = APIRouter()
@@ -12,6 +12,7 @@ class ProcessRequest(BaseModel):
     prompt_context: str = "Fokus pada momen historis yang absurd, tragis, atau unik. Cari hook yang kuat di awal."
     target_duration: int | None = None
     custom_timestamps: str | None = None
+    output_count: int | None = None
 
 class ProcessResponse(BaseModel):
     status: str
@@ -59,3 +60,18 @@ def get_status(job_id: str):
         output_files=job.output_files,
         error=job.error,
     )
+
+@router.websocket("/api/v1/ws/status/{job_id}")
+async def websocket_status(websocket: WebSocket, job_id: str):
+    await ws_manager.connect(job_id, websocket)
+    try:
+        # Kirim status awal sesaat setelah terhubung
+        job = get_job(job_id)
+        if job:
+            await websocket.send_json(job.to_dict())
+            
+        while True:
+            # Tahan koneksi tetap terbuka, bisa menerima data jika diperlukan (ping)
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect(job_id, websocket)

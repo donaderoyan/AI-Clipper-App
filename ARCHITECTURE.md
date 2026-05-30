@@ -17,7 +17,14 @@ Sistem ini menggunakan arsitektur Hybrid-Container. Antarmuka pengguna (Electron
 
 ## Diagram Alur Data (Data Flow)
 
-1. **Input:** Pengguna memasukkan URL video (YouTube) dan memilih pengaturan (rasio 9:16, dll) di UI Electron.
+1. **Input Frontend:** 
+   - Pengguna memasukkan URL video (YouTube).
+   - Pengguna memilih pengaturan (rasio 9:16, 16:9).
+   - Pengguna bisa memasukan prompt untuk AI context.
+   - Pengguna target duration.
+   - Pengguna bisa memasukan angka berapa banyak output video yang diinginkan. (Perlu validasi atau penanganan extra disini, jika video sumber 10 menit, dan target duration adalah 3 menit, maka output video paling banyak adalah 3 buah dengan durasi 3 menit. Tapi jika input jumlah berapa banyak output video yang diinginkan adalah 5, maka akan diabaikan dan respect pada rule ini)
+   - Pengguna bisa memasukan custom timestamps.
+   
 2. **Request:** UI mengirim HTTP POST ke `http://localhost:8000/api/v1/process`.
 3. **Backend Pipeline (Docker Container):**
    - Container memiliki instalasi FFmpeg dan pustaka sistem secara native.
@@ -30,7 +37,7 @@ Sistem ini menggunakan arsitektur Hybrid-Container. Antarmuka pengguna (Electron
       - `FFmpeg` memotong video, menyesuaikan rasio, dan menempelkan subtitle.
    - Semua file ditulis ke folder `/app/data` di dalam container.
 4. **Volume Mapping:** Folder `/app/data` di container dipetakan ke folder `/data` di Windows. Electron dapat langsung melihat dan membuka video hasil render dari folder tersebut.
-5. **Response/Polling:** Selama proses, frontend terus melakukan polling ke endpoint `/status` atau mendengarkan WebSockets untuk memperbarui *progress bar*.
+5. **Response/Polling:** Selama proses, frontend terus melakukan polling ke endpoint `/status` atau mendengarkan WebSockets untuk memperbarui *progress bar*. Dan juga frontend akan menampilkan Log proses pipeline yang lengkap, rapi dan jelas. Dimulai dari poses download video yang menampilkan kecepatan download, informasi size video, dan ETA, Lalu juga ada persentasi download dan dilanjutkan hingga semua proses pipeline berakhir akan ditampilkan di terminal UI frontend. UI Frontned akan ada terminal yang menampilkan informasi ini.
 6. **Output:** Video selesai dirender di folder lokal, UI menampilkan notifikasi sukses. File subtitle .srt tersimpan dalam folder yang sama dengan video.
 
 ## Struktur Folder (Directory Tree)

@@ -54,3 +54,24 @@ def format_timestamp(seconds: float) -> str:
     secs = int(seconds % 60)
     millis = int((seconds - int(seconds)) * 1000)
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+
+def generate_clip_srt(segments: List[dict], clip_start: float, clip_end: float, output_srt_path: Path) -> None:
+    with output_srt_path.open("w", encoding="utf-8") as stream:
+        index = 1
+        for seg in segments:
+            seg_start = seg.get("start", 0.0)
+            seg_end = seg.get("end", 0.0)
+            
+            # Skip if there's no overlap
+            if seg_end <= clip_start or seg_start >= clip_end:
+                continue
+                
+            # Adjust timestamps relative to clip start
+            adj_start = max(0.0, seg_start - clip_start)
+            adj_end = min(clip_end - clip_start, seg_end - clip_start)
+            
+            stream.write(f"{index}\n")
+            stream.write(f"{format_timestamp(adj_start)} --> {format_timestamp(adj_end)}\n")
+            stream.write(f"{seg.get('text', '')}\n\n")
+            index += 1

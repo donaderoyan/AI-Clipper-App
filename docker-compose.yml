@@ -16,6 +16,8 @@ services:
     environment:
       # Jika Anda menjalankan Ollama di Windows (Host), Docker mengaksesnya via URL ini
       - OLLAMA_URL=http://host.docker.internal:11434
+    env_file:
+      - .env
     # Hapus tanda pagar (uncomment) di bawah ini JIKA Anda menggunakan GPU Nvidia & WSL2
     # deploy:
     #   resources:

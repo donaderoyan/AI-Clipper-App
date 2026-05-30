@@ -5,7 +5,7 @@ from typing import List, Dict
 from .analyzer import extract_highlights_from_text
 from .downloader import download_video
 from .renderer import render_clip, safe_filename
-from .transcriber import transcribe_video
+from .transcriber import transcribe_video, generate_clip_srt
 from .vision import calculate_crop
 from .job_manager import JobState, update_job_status, set_job_artifacts
 from ..utils.storage import RAW_DIR, WORK_DIR, OUTPUT_DIR
@@ -52,28 +52,43 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         update_job_status(job_id, JobState.running, "Mengunduh video...", progress=10)
-        video_path = download_video(request_data.url, raw_dir)
         
-        update_job_status(job_id, JobState.running, "Mengekstrak audio dan transkripsi video...", progress=40)
+        def dl_progress(percent_str):
+            update_job_status(job_id, JobState.running, f"Mengunduh video... {percent_str}", progress=10, in_place=True)
+            
+        video_path = download_video(request_data.url, raw_dir, progress_callback=dl_progress)
+        
+        update_job_status(job_id, JobState.running, "Mengekstrak audio dan transkripsi video...", progress=40, in_place=True)
         transcript_text, transcript_path, segments = transcribe_video(video_path, work_dir)
         set_job_artifacts(job_id, str(video_path), str(transcript_path))
 
-        update_job_status(job_id, JobState.running, "Menganalisis transkrip untuk menemukan highlight...", progress=70)
+        update_job_status(job_id, JobState.running, "Menganalisis transkrip untuk menemukan highlight...", progress=70, in_place=True)
         target_duration = getattr(request_data, 'target_duration', None)
-        highlights = extract_highlights_from_text(transcript_text, request_data.prompt_context, segments, target_duration)
+        output_count = getattr(request_data, 'output_count', None)
+
+        actual_output_count = 1
+        if output_count is not None:
+            if target_duration is not None:
+                total_duration = segments[-1].get("end", 0.0) if segments else 0.0
+                max_clips = int(total_duration // target_duration)
+                actual_output_count = min(output_count, max_clips) if max_clips > 0 else 1
+            else:
+                actual_output_count = output_count
+
+        highlights = extract_highlights_from_text(transcript_text, request_data.prompt_context, segments, target_duration, actual_output_count)
         if not highlights:
             highlights = [{"start": 0.0, "end": min(20.0, segments[-1].get("end", 20.0) if segments else 20.0), "label": "default"}]
             
-        if target_duration is not None and highlights:
-            max_end = segments[-1].get("end", highlights[0]["end"]) if segments else highlights[0]["end"]
-            hl = highlights[0]
-            
-            # Ensure the clip is exactly target_duration (if video is long enough)
-            if hl["start"] + target_duration > max_end:
-                hl["start"] = max(0.0, max_end - target_duration)
-                hl["end"] = min(max_end, hl["start"] + target_duration)
-            else:
-                hl["end"] = hl["start"] + target_duration
+        if target_duration is not None:
+            max_end = segments[-1].get("end", 0.0) if segments else 0.0
+            for hl in highlights:
+                cur_max_end = max_end if max_end > 0 else hl.get("end", 0.0)
+                # Ensure the clip is exactly target_duration (if video is long enough)
+                if hl["start"] + target_duration > cur_max_end:
+                    hl["start"] = max(0.0, cur_max_end - target_duration)
+                    hl["end"] = min(cur_max_end, hl["start"] + target_duration)
+                else:
+                    hl["end"] = hl["start"] + target_duration
 
         final_clips = []
         custom_ts = getattr(request_data, 'custom_timestamps', None)
@@ -82,7 +97,7 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
         
         if not custom_ts or target_duration is not None:
             # If no custom timestamps, or if target_duration is provided, include the AI clip
-            final_clips.append(highlights[0])
+            final_clips.extend(highlights[:actual_output_count])
 
         # Dedup just in case
         unique_clips = []
@@ -110,18 +125,22 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
                 
             output_filename = f"{safe_filename(desc_name)}_{job_id}_{i}.mp4"
             output_path = output_dir / output_filename
+            output_srt_path = output_path.with_suffix(".srt")
 
             prog = 80 + int((i / total_clips) * 15)
             update_job_status(job_id, JobState.running, f"Merender klip {clip['start']}s hingga {clip['end']}s...", progress=prog)
+            
+            generate_clip_srt(segments, float(clip["start"]), float(clip["end"]), output_srt_path)
+            
             render_clip(
                 video_path=video_path,
                 output_path=output_path,
                 start=float(clip["start"]),
                 end=float(clip["end"]),
                 crop_params=crop_params,
-                subtitle_path=transcript_path,
             )
             output_files.append(str(output_path))
+            output_files.append(str(output_srt_path))
 
         update_job_status(job_id, JobState.success, "Proses selesai.", progress=100, output_files=output_files)
     except Exception as exc:
