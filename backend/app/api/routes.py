@@ -1,5 +1,5 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl, field_validator
 
 from app.services.job_manager import create_job, get_job, ws_manager
 from app.services.pipeline import run_ai_pipeline
@@ -7,12 +7,48 @@ from app.services.pipeline import run_ai_pipeline
 router = APIRouter()
 
 class ProcessRequest(BaseModel):
-    url: str
+    url: HttpUrl
     aspect_ratio: str = "9:16"
     prompt_context: str = "Fokus pada momen historis yang absurd, tragis, atau unik. Cari hook yang kuat di awal."
     target_duration: int | None = None
     custom_timestamps: str | None = None
     output_count: int | None = None
+
+    @field_validator('aspect_ratio')
+    @classmethod
+    def check_aspect(cls, v: str):
+        if v not in ("9:16", "16:9"):
+            raise ValueError('Rasio aspek tidak valid. Pilih "9:16" atau "16:9".')
+        return v
+
+    @field_validator('target_duration')
+    @classmethod
+    def check_duration(cls, v):
+        if v is None:
+            return v
+        if v <= 0:
+            raise ValueError('Durasi target harus angka positif.')
+        return v
+
+    @field_validator('output_count')
+    @classmethod
+    def check_count(cls, v):
+        if v is None:
+            return v
+        if v <= 0:
+            raise ValueError('Jumlah keluaran harus angka positif.')
+        return v
+
+    @field_validator('custom_timestamps')
+    @classmethod
+    def check_timestamps(cls, v):
+        if v is None or v.strip() == "":
+            return v
+        import re
+        pattern = re.compile(r'^(\\d{1,2}:\\d{2}(?::\\d{2})?)-(\\d{1,2}:\\d{2}(?::\\d{2})?)(\\s*,\\s*\\d{1,2}:\\d{2}(?::\\d{2})?-\\d{1,2}:\\d{2}(?::\\d{2})?)*$')
+        if not pattern.match(v.strip()):
+            raise ValueError('Format timestamp tidak valid. Contoh: 01:20-02:00, 05:00-06:30')
+        return v
 
 class ProcessResponse(BaseModel):
     status: str

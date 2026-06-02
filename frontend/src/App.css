@@ -129,6 +129,25 @@ textarea {
   cursor: not-allowed;
 }
 
+.field-error {
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-top: 6px;
+  display: block;
+}
+
+.field-helper {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 4px;
+  display: block;
+}
+
+input.invalid, select.invalid, textarea.invalid {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.08);
+}
+
 /* Right Panel */
 .right-panel {
   flex: 1;
