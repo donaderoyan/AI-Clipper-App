@@ -25,6 +25,7 @@ class JobResult:
         self.error: Optional[str] = None
         self.video_path: Optional[str] = None
         self.transcript_path: Optional[str] = None
+        self.clips_metadata: List[Dict] = []
 
     def to_dict(self) -> Dict[str, Optional[str]]:
         return {
@@ -37,6 +38,7 @@ class JobResult:
             "error": self.error,
             "video_path": self.video_path,
             "transcript_path": self.transcript_path,
+            "clips_metadata": self.clips_metadata,
         }
 
 class ConnectionManager:
@@ -86,7 +88,7 @@ _last_in_place = False
 spinner_frames = ['/', '-', '\\', '|']
 spinner_idx = 0
 
-def update_job_status(job_id: str, status: JobState, message: str, step: str = "", progress: Optional[int] = None, error: Optional[str] = None, output_files: Optional[List[str]] = None, in_place: bool = True) -> None:
+def update_job_status(job_id: str, status: JobState, message: str, step: str = "", progress: Optional[int] = None, error: Optional[str] = None, output_files: Optional[List[str]] = None, clips_metadata: Optional[List[Dict]] = None, in_place: bool = True) -> None:
     global spinner_idx, _last_in_place
     job = jobs.get(job_id)
     if not job:
@@ -101,6 +103,8 @@ def update_job_status(job_id: str, status: JobState, message: str, step: str = "
         job.error = error
     if output_files is not None:
         job.output_files = output_files
+    if clips_metadata is not None:
+        job.clips_metadata = clips_metadata
         
     # Broadcast to WebSocket clients
     ws_manager.broadcast(job_id, job.to_dict())

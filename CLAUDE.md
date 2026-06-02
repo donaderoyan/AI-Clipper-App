@@ -5,6 +5,8 @@ Ini adalah Web App untuk memotong video panjang menjadi video pendek vertikal (9
 
 ## Fokus Aplikasi
 Memproses penceritaan bergaya dokumenter, menemukan momen puncak narasi (seperti insiden historis, fakta tragis/unik), melakukan pemotongan, smart panning, dan menambahkan subtitle dinamis.
+- Setiap klip dilengkapi metadata topik dan rentang waktu, lalu ditampilkan dengan detail dalam hover popup.
+- Pemutar video modal menggunakan kontrol HTML5 standar sehingga seek bar atau timeline bisa digunakan untuk melompat ke menit yang diinginkan.
 
 ## Tech Stack
 - **Frontend:** Electron, TypeScript, React (atau Vite), Tailwind CSS.
@@ -26,6 +28,7 @@ Jika saya meminta untuk "jalankan proyek", jalankan dua perintah ini di terminal
 - **Penanganan Error:** Selalu berikan blok `try-except` di Python, terutama saat memanggil subproses seperti FFmpeg atau yt-dlp, dan kembalikan status HTTP yang sesuai (400, 500) ke frontend.
 - **Bahasa Komentar:** Gunakan Bahasa Indonesia atau Bahasa Inggris yang jelas dan ringkas.
 - **TypeScript:** Gunakan strict typing. Hindari `any`. Gunakan interface untuk payload API.
+- **Form Validation / UX:** Berikan validasi form yang jelas dan pesan error langsung di UI untuk URL, durasi target, jumlah output, dan format timestamp.
 - **Python:** Gunakan Type Hints (misal: `def process_video(url: str) -> dict:`). Tulis kode dengan gaya asinkron (`async def`) untuk endpoint API.
 - **Komunikasi API:** Frontend dan Backend HANYA berkomunikasi melalui HTTP REST API (localhost:8000). Jangan gunakan IPC Electron untuk memanggil skrip Python.
 - **Ollama API:** Backend di dalam Docker harus mengakses Ollama yang berjalan di Host Windows menggunakan URL `http://host.docker.internal:11434`.

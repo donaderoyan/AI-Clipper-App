@@ -62,6 +62,7 @@ class StatusResponse(BaseModel):
     progress: int = 0
     output_files: list[str] = []
     error: str | None = None
+    clips_metadata: list[dict] = []
 
 @router.get("/")
 def read_root():

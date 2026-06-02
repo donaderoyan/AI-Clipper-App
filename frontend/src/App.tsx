@@ -11,6 +11,10 @@ interface ClipResult {
   srtName: string;
   duration: string;
   videoTitle: string;
+  topic: string;
+  aspectRatio: string;
+  start: number;
+  end: number;
 }
 
 function App() {
@@ -39,7 +43,10 @@ function App() {
            const srts = files.filter(f => f.endsWith('.srt'));
            const originalTitle = (parsed.video_path || '').split(/[/\\]/).pop()?.replace(/\.[^/.]+$/, "") || 'Video Klip';
            
-           const paired = videos.map(vid => {
+           // Get clips metadata if available
+           const clipsMetadata = parsed.clips_metadata || [];
+           
+           const paired = videos.map((vid, idx) => {
                const getMediaUrl = (pathStr: string) => {
                   const parts = pathStr.replace(/\\/g, '/').split('/output/');
                   if (parts.length > 1) {
@@ -62,13 +69,24 @@ function App() {
                    }
                }
 
+               // Get topic from metadata
+               const metadata = clipsMetadata.find((m: any) => m.index === idx);
+               const topic = metadata?.topic || 'Video Clip';
+               const aspectRatio = metadata?.aspect_ratio || '9:16';
+               const start = metadata?.start ?? 0;
+               const end = metadata?.end ?? 0;
+
                return {
                   videoUrl: getMediaUrl(vid),
                   srtUrl: srt ? getMediaUrl(srt) : '',
                   fileName: vid.split('/').pop()?.split('\\').pop() || 'video.mp4',
                   srtName: srt ? (srt.split('/').pop()?.split('\\').pop() || '') : '',
                   duration: durationStr,
-                  videoTitle: originalTitle
+                  videoTitle: originalTitle,
+                  topic: topic,
+                  aspectRatio: aspectRatio,
+                  start,
+                  end
                };
            });
            setResults(paired);
@@ -149,6 +167,12 @@ function App() {
 
     setErrors(newErr);
     return Object.keys(newErr).length === 0;
+  };
+
+  const formatClipTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -283,7 +307,10 @@ function App() {
             <div className="results-grid">
               {results.map((res, idx) => (
                 <div key={idx} className="result-card" onClick={() => setActiveVideo(res.videoUrl)}>
-                  <div className="video-container aspect-1-1">
+                  <div className="result-card-header">
+                    <span className="clip-number">Klip #{idx + 1}</span>
+                  </div>
+                  <div className="video-container" style={{ aspectRatio: res.aspectRatio.replace(':', ' / ') }}>
                     {/* Keep video element but without controls so it acts as a thumbnail */}
                     <video src={res.videoUrl} preload="metadata" />
                     <div className="play-overlay">
@@ -291,19 +318,29 @@ function App() {
                     </div>
                   </div>
                   <div className="result-info">
-                    <span className="detail-label">Detail Video</span>
-                    <h3 title={res.videoTitle}>{res.videoTitle}</h3>
+                    <div className="topic-section">
+                      <h3 className="video-topic" title={res.topic}>{res.topic}</h3>
+                    </div>
                     <div className="meta-info">
                       <div className="duration-info">
                         <Clock size={14} />
-                        <span>Durasi: {res.duration}</span>
+                        <span>{res.duration}</span>
                       </div>
                       {res.srtName && (
-                        <div className="subtitle-info" title={res.srtName}>
-                          <FileText size={14} />
-                          <span className="truncate">Sub: {res.srtName}</span>
+                        <div className="subtitle-badge">
+                          <FileText size={12} />
+                          <span>Subtitle</span>
                         </div>
                       )}
+                    </div>
+                  </div>
+                  <div className="detail-popup">
+                    <div className="popup-content">
+                      <p><strong>Topik:</strong> {res.topic}</p>
+                      <p><strong>Durasi:</strong> {res.duration}</p>
+                      <p><strong>Rentang:</strong> {formatClipTime(res.start)} - {formatClipTime(res.end)}</p>
+                      <p><strong>Aspect:</strong> {res.aspectRatio}</p>
+                      {res.srtName && <p><strong>Subtitle:</strong> {res.srtName}</p>}
                     </div>
                   </div>
                 </div>
@@ -324,6 +361,9 @@ function App() {
               src={activeVideo} 
               controls 
               autoPlay 
+              playsInline
+              preload="metadata"
+              onClick={(e) => e.stopPropagation()}
               className={`modal-video aspect-${ratio.replace(':', '-')}`} 
             />
           </div>

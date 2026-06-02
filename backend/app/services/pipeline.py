@@ -1,4 +1,5 @@
 import traceback
+import json
 from pathlib import Path
 from typing import List, Dict
 
@@ -23,7 +24,7 @@ def format_time(sec: float) -> str:
     s = int(sec)
     return f"{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
 
-def parse_custom_timestamps(ts_str: str) -> List[Dict[str, float]]:
+def parse_custom_timestamps(ts_str: str) -> List[Dict[str, object]]:
     results = []
     for part in ts_str.split(','):
         part = part.strip()
@@ -36,7 +37,8 @@ def parse_custom_timestamps(ts_str: str) -> List[Dict[str, float]]:
                 results.append({
                     'start': start_sec,
                     'end': end_sec,
-                    'label': f'custom_{int(start_sec)}_{int(end_sec)}'
+                    'label': f'custom_{int(start_sec)}_{int(end_sec)}',
+                    'topic': 'Custom clip'
                 })
             except Exception:
                 pass
@@ -59,7 +61,7 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
         def dl_progress(percent_str):
             update_job_status(job_id, JobState.running, f"Mengunduh video... {percent_str}", step="download", progress=10, in_place=True)
             
-        video_path = download_video(request_data.url, raw_dir, progress_callback=dl_progress)
+        video_path = download_video(str(request_data.url), raw_dir, progress_callback=dl_progress)
         
         update_job_status(job_id, JobState.running, "Mengekstrak audio dan transkripsi video...", step="transcribe", progress=40, in_place=True)
         transcript_text, transcript_path, segments = transcribe_video(video_path, work_dir)
@@ -112,6 +114,7 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
                 unique_clips.append(clip)
 
         output_files = []
+        clips_metadata = []  # Store metadata for each clip
         
         total_clips = len(unique_clips)
         for i, clip in enumerate(unique_clips):
@@ -138,7 +141,7 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
             output_path = output_dir / output_filename
             output_srt_path = output_path.with_suffix(".srt")
 
-            prog = 80 + int((i / total_clips) * 15)
+            prog = 80 + int((i / total_clips) * 10)
             start_fmt = format_time(float(clip["start"]))
             end_fmt = format_time(float(clip["end"]))
             update_job_status(job_id, JobState.running, f"Merender klip {start_fmt} hingga {end_fmt}...", step=f"render_{i}", progress=prog)
@@ -152,10 +155,36 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
                 end=float(clip["end"]),
                 crop_params=crop_params,
             )
+            
             output_files.append(str(output_path))
             output_files.append(str(output_srt_path))
+            
+            topic = clip.get("topic", "Video Clip")
+            
+            # Store metadata for this clip
+            clips_metadata.append({
+                "index": i,
+                "filename": output_filename,
+                "video_path": str(output_path),
+                "srt_path": str(output_srt_path),
+                "topic": topic,
+                "duration": dur_val,
+                "start": start_val,
+                "end": end_val,
+                "aspect_ratio": request_data.aspect_ratio
+            })
 
-        update_job_status(job_id, JobState.success, "Proses selesai.", step="done", progress=100, output_files=output_files)
+        # Save metadata to JSON file
+        metadata_filename = f"clips_metadata_{job_id}.json"
+        metadata_path = output_dir / metadata_filename
+        try:
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(clips_metadata, f, ensure_ascii=False, indent=2)
+            output_files.append(str(metadata_path))
+        except Exception as e:
+            print(f"Peringatan: Gagal menyimpan metadata: {e}")
+
+        update_job_status(job_id, JobState.success, "Proses selesai.", step="done", progress=100, output_files=output_files, clips_metadata=clips_metadata)
     except Exception as exc:
         error_message = str(exc)
         if hasattr(exc, "stderr") and exc.stderr:

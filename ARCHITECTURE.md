@@ -24,6 +24,7 @@ Sistem ini menggunakan arsitektur Hybrid-Container. Antarmuka pengguna (Electron
    - Pengguna target duration.
    - Pengguna bisa memasukan angka berapa banyak output video yang diinginkan. (Perlu validasi atau penanganan extra disini, jika video sumber 10 menit, dan target duration adalah 3 menit, maka output video paling banyak adalah 3 buah dengan durasi 3 menit. Tapi jika input jumlah berapa banyak output video yang diinginkan adalah 5, maka akan diabaikan dan respect pada rule ini)
    - Pengguna bisa memasukan custom timestamps.
+   - Frontend harus memvalidasi URL, durasi target, jumlah output, dan format timestamp sebelum mengirim request.
    
 2. **Request:** UI mengirim HTTP POST ke `http://localhost:8000/api/v1/process`.
 3. **Backend Pipeline (Docker Container):**
@@ -35,10 +36,11 @@ Sistem ini menggunakan arsitektur Hybrid-Container. Antarmuka pengguna (Electron
       - `Ollama (LLM)` menganalisis teks untuk menemukan *timestamp* terbaik (momen puncak/menarik).
       - `OpenCV` menganalisis frame untuk *smart panning* (jika mode vertikal).
       - `FFmpeg` memotong video, menyesuaikan rasio, dan menempelkan subtitle.
+      - Backend juga menyiapkan metadata klip (`clips_metadata`) yang mencakup `topic`, `start`, `end`, dan `aspect_ratio` untuk setiap output video.
    - Semua file ditulis ke folder `/app/data` di dalam container.
 4. **Volume Mapping:** Folder `/app/data` di container dipetakan ke folder `/data` di Windows. Electron dapat langsung melihat dan membuka video hasil render dari folder tersebut.
 5. **Response/Polling:** Selama proses, frontend terus melakukan polling ke endpoint `/status` atau mendengarkan WebSockets untuk memperbarui *progress bar*.
-   - Frontend S
+   - Frontend terus mendengarkan WebSockets untuk memperbarui status pipeline secara real time.
 6. **Output:** Video selesai dirender di folder lokal, UI menampilkan notifikasi sukses. File subtitle .srt tersimpan dalam folder yang sama dengan video.
 
 ## Frontend UI/UX
@@ -71,11 +73,12 @@ Sistem ini menggunakan arsitektur Hybrid-Container. Antarmuka pengguna (Electron
 		**Bagian Hasil Video Clipping:**
 			- Membaca dimana output video dan subtitle disimpan di local, lalu tampilkan di bagian hasil video clipping.
 			- Bagian ini akan menampilkan hasil dari video clipping dalam bentuk card dengan ukuran yang kecil dan disesuaikan dari rasio 1:1 lalu ditambah informasi detail video yang menyatu di bagian bawah card.
-			- Dalam setiap card ada bagian detail video yang menampilkan judul video, durasi video, nama file subtitle .srt.
+			- Dalam setiap card ada bagian detail video yang menampilkan judul video, durasi video, topik klip, dan nama file subtitle .srt.
+			- Pengguna harus melihat pesan error inline pada form jika input invalid: URL kosong, durasi bukan angka positif, jumlah keluaran tidak valid, atau timestamp dengan format salah.
 			- User dapat memutar video. User klik salah satu dari card video klip, lalu pemutar video akan muncul dalam bentuk popup dialog. Berikut adalah ketentuan popup dialog pemutar video:
-				* User memiliki full kontrol pada pemutar video seperti play, pause, volume, dll.
+				* User memiliki full kontrol pada pemutar video seperti play, pause, volume, serta seek bar/timeline untuk melompat ke menit yang diinginkan.
 				* Saat dialog pemutar video terbuka, ada semacam overlay di background yang mencegah user melakukan action secara tidak sengaja. User harus menutup dialog pemutar video untuk melakukan action lagi.
-				* Setelah dialog pemutar video ditutup, season video sebelumnya sudah harus bersih.
+				* Setelah dialog pemutar video ditutup, session video sebelumnya sudah harus bersih.
 4. Setiap kali User melakukan proses baru, Terminal UI dan bagian hasil video clipping harus clear lagi dan bersih dari season sebelumnya. 
 
 ## Struktur Folder (Directory Tree)
