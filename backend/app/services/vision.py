@@ -46,6 +46,7 @@ def calculate_crop(video_path: Path, aspect_ratio: str, start: float = 0.0, end:
         return width, height, 0, 0
 
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    profile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_profileface.xml')
     eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
     
     mouth_cascade_path = cv2.data.haarcascades + 'haarcascade_mcs_mouth.xml'
@@ -61,6 +62,7 @@ def calculate_crop(video_path: Path, aspect_ratio: str, start: float = 0.0, end:
         target_width,
         target_height,
         face_cascade,
+        profile_cascade,
         eye_cascade,
         mouth_cascade,
         start,
@@ -115,6 +117,7 @@ def calculate_crop_path(
         return width, height, []
 
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    profile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_profileface.xml')
     eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
     
     mouth_cascade_path = cv2.data.haarcascades + 'haarcascade_mcs_mouth.xml'
@@ -130,6 +133,7 @@ def calculate_crop_path(
         target_width,
         target_height,
         face_cascade,
+        profile_cascade,
         eye_cascade,
         mouth_cascade,
         start,
@@ -276,37 +280,47 @@ def _detect_prominent_region(frame: np.ndarray, frame_area: int) -> Optional[Tup
     if not candidates:
         return None
 
-    candidates = sorted(candidates, key=cv2.contourArea, reverse=True)[:3]
-    weighted_x = 0.0
-    weighted_y = 0.0
-    total_weight = 0.0
-
-    for cnt in candidates:
-        area = cv2.contourArea(cnt)
-        x, y, w, h = cv2.boundingRect(cnt)
-        weighted_x += (x + w // 2) * area
-        weighted_y += (y + h // 2) * area
-        total_weight += area
-
-    if total_weight == 0:
-        return None
-
-    return int(weighted_x / total_weight), int(weighted_y / total_weight)
+    candidates = sorted(candidates, key=cv2.contourArea, reverse=True)
+    
+    # Hanya ambil 1 kandidat paling besar, jangan rata-ratakan dengan kandidat lain
+    # Jika dirata-ratakan, kamera akan menyorot di tengah antara 2 objek (bug)
+    best_cnt = candidates[0]
+    x, y, w, h = cv2.boundingRect(best_cnt)
+    
+    return x + w // 2, y + h // 2
 
 
 def _smooth_trajectory(
     points: List[Tuple[int, int, int]],
-    window_size: int = 3,  # Reduced from 5 untuk panning lebih cepat
+    window_size: int = 5,  # Gunakan window sedikit lebih besar untuk median filter
 ) -> List[Tuple[int, int, int]]:
     if len(points) <= window_size:
         return points
 
-    smoothed = []
+    # Tahap 1: Median filter untuk menghilangkan noise deteksi 1 frame 
+    # namun tetap mempertahankan transisi perpindahan muka (snap to face) yang cepat
+    median_points = []
     for i in range(len(points)):
         start_idx = max(0, i - window_size // 2)
         end_idx = min(len(points), i + window_size // 2 + 1)
         window = points[start_idx:end_idx]
         frame_idx = points[i][0]
+        
+        sorted_x = sorted([p[1] for p in window])
+        sorted_y = sorted([p[2] for p in window])
+        med_x = sorted_x[len(sorted_x) // 2]
+        med_y = sorted_y[len(sorted_y) // 2]
+        median_points.append((frame_idx, med_x, med_y))
+
+    # Tahap 2: Light smoothing (Moving Average dengan window kecil 3)
+    # untuk memperhalus pergerakan minor
+    smoothed = []
+    for i in range(len(median_points)):
+        start_idx = max(0, i - 1)
+        end_idx = min(len(median_points), i + 2)
+        window = median_points[start_idx:end_idx]
+        frame_idx = median_points[i][0]
+        
         avg_x = int(sum(p[1] for p in window) / len(window))
         avg_y = int(sum(p[2] for p in window) / len(window))
         smoothed.append((frame_idx, avg_x, avg_y))
@@ -487,17 +501,18 @@ def _detect_speaker_face(
     face_cascade,
     eye_cascade,
     mouth_cascade,
-) -> Tuple[Optional[Tuple[int, int]], float]:
+    active_speaker_id: int = -1,
+) -> Tuple[Optional[Tuple[int, int]], float, int]:
     """
     Deteksi face yang sedang berbicara (speaker) berdasarkan:
     1. Eye detection confidence (prioritas utama)
     2. Mouth activity (tiebreaker untuk multiple faces)
     3. Optical flow magnitude (fallback)
     
-    Returns: (speaker_focus_point, speaker_confidence)
+    Returns: (speaker_focus_point, speaker_confidence, speaker_id)
     """
     if not faces_with_ids:
-        return None, 0.0
+        return None, 0.0, -1
     
     speaker_id = -1
     highest_score = 0.0
@@ -545,18 +560,19 @@ def _detect_speaker_face(
         if prev_frame is not None:
             flow_score = _calculate_optical_flow_magnitude(prev_frame, frame, (fx, fy, fw, fh)) * 1.5
         
-        # IMPROVED SCORING: Prioritas eye detection, mouth/flow sebagai tiebreaker
-        # Jika eye_score tinggi (2.0 = kedua mata), prioritas tinggi regardless mouth
-        # Jika eye_score rendah, gunakan mouth+flow untuk differentiate
-        if eye_score >= 2.0:
-            # Strong face (both eyes detected) - high priority
-            total_score = 3.0 + (mouth_score * 0.3) + (flow_score * 0.1)
-        elif eye_score >= 1.5:
-            # Good face (one eye detected) - medium priority
-            total_score = 2.0 + (mouth_score * 0.4) + (flow_score * 0.2)
-        else:
-            # Weak face (no clear eyes) - low priority
-            total_score = (eye_score * 0.5) + (mouth_score * 0.3) + (flow_score * 0.2)
+        # IMPROVED SCORING: Aktivitas mulut dan pergerakan adalah indikator UTAMA berbicara.
+        # Eye_score hanya memastikan bahwa ini adalah wajah yang valid.
+        valid_face_multiplier = 1.0 if eye_score >= 1.5 else 0.5
+        
+        # Bobot besar untuk aktivitas mulut dan optik (indikasi bicara)
+        speaking_score = (mouth_score * 2.5) + (flow_score * 1.5)
+        
+        total_score = (speaking_score * valid_face_multiplier) + (eye_score * 1.0)
+            
+        # Hysteresis (stickiness) bonus dikurangi agar transisi lebih cepat
+        # ketika pembicara baru mulai bicara.
+        if face_id == active_speaker_id:
+            total_score += 0.5  # Bonus kecil agar tidak flickering, tapi mudah direbut
         
         face_scores.append((total_score, face_id, focus_x, focus_y))
     
@@ -566,7 +582,7 @@ def _detect_speaker_face(
         highest_score, speaker_id, focus_x, focus_y = face_scores[0]
         speaker_focus = (focus_x, focus_y)
     
-    return speaker_focus, highest_score
+    return speaker_focus, highest_score, speaker_id
 
 
 def _analyze_frames_with_speaker_detection(
@@ -576,6 +592,7 @@ def _analyze_frames_with_speaker_detection(
     target_width: int,
     target_height: int,
     face_cascade,
+    profile_cascade,
     eye_cascade,
     mouth_cascade,
     start: float,
@@ -603,6 +620,7 @@ def _analyze_frames_with_speaker_detection(
     
     face_tracker = FaceTracker()
     prev_frame_gray = None
+    active_speaker_id = -1
 
     while current_frame < end_frame:
         ret, frame = capture.read()
@@ -615,14 +633,42 @@ def _analyze_frames_with_speaker_detection(
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        # Detect faces
-        faces = face_cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(30, 30),
-            flags=cv2.CASCADE_SCALE_IMAGE,
+        # 1. Frontal faces
+        faces_frontal = face_cascade.detectMultiScale(
+            gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE
         )
+        faces_frontal = list(faces_frontal) if len(faces_frontal) > 0 else []
+
+        # 2. Profile faces (Left facing)
+        faces_profile_left = profile_cascade.detectMultiScale(
+            gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE
+        )
+        faces_profile_left = list(faces_profile_left) if len(faces_profile_left) > 0 else []
+
+        # 3. Profile faces (Right facing - require horizontal flip)
+        gray_flipped = cv2.flip(gray, 1)
+        faces_profile_right_flipped = profile_cascade.detectMultiScale(
+            gray_flipped, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE
+        )
+        faces_profile_right = []
+        if len(faces_profile_right_flipped) > 0:
+            for (x, y, w, h) in faces_profile_right_flipped:
+                # Flip bounding box back to original coordinates
+                orig_x = frame_width - (x + w)
+                faces_profile_right.append((orig_x, y, w, h))
+        
+        # Combine all detections
+        all_faces = faces_frontal + faces_profile_left + faces_profile_right
+        
+        # Group overlapping rectangles (Non-maximum suppression)
+        # to avoid detecting the same face multiple times
+        faces = []
+        if len(all_faces) > 0:
+            rects = [[int(x), int(y), int(w), int(h)] for x, y, w, h in all_faces]
+            # Add duplicates to ensure groupRectangles keeps them (it requires weights/neighbors)
+            rects = rects + rects 
+            faces_grouped, _ = cv2.groupRectangles(rects, 1, 0.2)
+            faces = list(faces_grouped)
 
         best_focus_x = frame_width // 2
         best_focus_y = frame_height // 2
@@ -633,10 +679,14 @@ def _analyze_frames_with_speaker_detection(
             faces_with_ids = face_tracker.update_faces(list(faces))
             
             # Deteksi speaker dalam faces
-            speaker_focus, speaker_score = _detect_speaker_face(
+            speaker_focus, speaker_score, current_speaker_id = _detect_speaker_face(
                 frame, prev_frame_gray, faces_with_ids,
-                face_cascade, eye_cascade, mouth_cascade
+                face_cascade, eye_cascade, mouth_cascade,
+                active_speaker_id=active_speaker_id
             )
+            
+            if current_speaker_id != -1:
+                active_speaker_id = current_speaker_id
             
             if speaker_focus and speaker_score > 0:
                 best_focus_x, best_focus_y = speaker_focus
