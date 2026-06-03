@@ -18,7 +18,11 @@ def _load_yt_dlp() -> Any:
         ) from exc
 
 
-def download_video(url: str, raw_dir: Path, progress_callback=None) -> Path:
+def download_video(url: str, raw_dir: Path, progress_callback=None) -> tuple[Path, bool]:
+    """
+    Download video or use cached version if available.
+    Returns: (video_path, is_cached) where is_cached=True if file was reused
+    """
     raw_dir.mkdir(parents=True, exist_ok=True)
     output_template = str(raw_dir / "%(id)s.%(ext)s")
     ydl_opts = {
@@ -86,6 +90,27 @@ def download_video(url: str, raw_dir: Path, progress_callback=None) -> Path:
     yt_dlp = _load_yt_dlp()
     YoutubeDL = getattr(yt_dlp, "YoutubeDL")
 
+    # First, try to get metadata without downloading to check if file cached
+    video_id = None
+    ext = None
+    try:
+        with YoutubeDL({**ydl_opts, "quiet": True, "noprogress": True}) as ydl:
+            info = ydl.extract_info(url, download=False)
+            video_id = info.get("id")
+            ext = info.get("ext", "mp4")
+    except Exception as metadata_exc:
+        # If metadata fetch fails, we'll try to download and get info from there
+        pass
+
+    # Check if file already exists (cache hit)
+    if video_id and ext:
+        file_path = raw_dir / f"{video_id}.{ext}"
+        if file_path.exists():
+            if progress_callback:
+                progress_callback("Video sudah diunduh sebelumnya, menggunakan file cache ✓")
+            return file_path, True
+
+    # File not cached, proceed with download
     try:
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -112,4 +137,4 @@ def download_video(url: str, raw_dir: Path, progress_callback=None) -> Path:
     file_path = raw_dir / f"{video_id}.{ext}"
     if not file_path.exists():
         raise FileNotFoundError(f"Video unduhan tidak ditemukan: {file_path}")
-    return file_path
+    return file_path, False

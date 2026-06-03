@@ -24,6 +24,30 @@ Jika saya meminta untuk "jalankan proyek", jalankan dua perintah ini di terminal
 1. Backend (Docker): `docker-compose up --build`
 2. Frontend (Native): `cd frontend && npm run dev`
 
+## Download Caching
+Ketika pengguna mengirimkan URL video, backend akan terlebih dahulu memeriksa apakah video tersebut sudah diunduh sebelumnya ke dalam folder `/data/raw`. Jika file yang ada cocok dengan `id` video dan ekstensi ditemukan, backend akan menggunakan kembali file tersebut alih-alih mengunduhnya lagi. Ini mengurangi bandwidth, mempercepat operasi berulang, dan menghindari unduhan yang tidak perlu ketika URL yang sama diproses beberapa kali.
+
+Untuk memaksa pengunduhan ulang, hapus file yang sesuai di host `/data/raw/<video_id>.*` atau bersihkan direktori `/data/raw`.
+
+Pengguna akan melihat pesan di Terminal UI:
+- Jika cache tersedia: **✓ Video sudah diunduh sebelumnya (menggunakan cache)**
+- Jika download baru: **✓ Video berhasil diunduh**
+
+## Smart Panning (Vision Panning Improvements)
+Backend menggunakan OpenCV untuk menganalisis video dan menghasilkan koordinat crop dinamis yang mengikuti wajah orang yang sedang berbicara (speaker). Fitur ini mencakup:
+
+1. **Multi-Speaker Detection**: Sistem dapat mendeteksi multiple orang dalam satu frame dan secara otomatis fokus ke orang yang sedang berbicara.
+
+2. **Speaker Scoring Algorithm**: 
+   - Prioritas utama: Deteksi mata (indikasi wajah menghadap kamera)
+   - Tiebreaker: Aktivitas mulut (indikasi sedang berbicara)
+   - Fallback: Optical flow motion (pergerakan umum)
+
+3. **Panning Responsivitas**:
+   - Smoothing window: 3 frames (diperkecil dari 5) untuk respons lebih cepat
+   - Frame sampling: 180 frames (ditingkatkan dari 120) untuk tracking lebih akurat
+   - Hasil: Orang yang berbicara langsung berada di center video dengan minimal lag
+
 ## Aturan Penulisan Kode (Coding Conventions)
 - **Penanganan Error:** Selalu berikan blok `try-except` di Python, terutama saat memanggil subproses seperti FFmpeg atau yt-dlp, dan kembalikan status HTTP yang sesuai (400, 500) ke frontend.
 - **Bahasa Komentar:** Gunakan Bahasa Indonesia atau Bahasa Inggris yang jelas dan ringkas.

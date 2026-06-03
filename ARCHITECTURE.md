@@ -30,12 +30,22 @@ Sistem ini menggunakan arsitektur Hybrid-Container. Antarmuka pengguna (Electron
 3. **Backend Pipeline (Docker Container):**
    - Container memiliki instalasi FFmpeg dan pustaka sistem secara native.
    - Python di dalam Docker mengeksekusi pipeline:
-      - `yt-dlp` Unduh video simpan ke `/app/data/raw/` (otomatis muncul di Windows).
+	- `yt-dlp` Unduh video simpan ke `/app/data/raw/` (otomatis muncul di Windows).
+		- **Download Caching (Optimasi)**: Sebelum mengunduh, backend memeriksa apakah video sudah pernah diunduh dengan melakukan kueri metadata menggunakan `yt-dlp` (mode `download=False`) dan mencari file bernama `<video_id>.<ext>` di `/app/data/raw/`. 
+		  - Jika file sudah ada: **Backend menggunakan kembali file tersebut** tanpa unduh ulang. Terminal UI menampilkan pesan: **"✓ Video sudah diunduh sebelumnya (menggunakan cache)"**
+		  - Jika file belum ada: **Backend melakukan unduh baru** dan menampilkan pesan: **"✓ Video berhasil diunduh"**
+		  - Untuk memaksa unduh ulang: Hapus file dari `/data/raw/<video_id>.*` di host atau clear direktori `/data/raw`.
       - `faster-whisper` mengekstrak audio menjadi teks (.srt).
       - Analisis teks dengan mengirim HTTP Request keluar container menuju `http://host.docker.internal:11434` (Ollama di Docker container).
       - `Ollama (LLM)` menganalisis teks untuk menemukan *timestamp* terbaik (momen puncak/menarik).
-      - `OpenCV` menganalisis frame untuk *smart panning* (jika mode vertikal).
-      - `FFmpeg` memotong video, menyesuaikan rasio, dan menempelkan subtitle.
+      - `OpenCV` menganalisis frame untuk *smart panning* (jika mode vertikal) dengan **Multi-Speaker Detection**:
+        - Deteksi semua wajah dalam frame menggunakan Haar Cascade
+        - Untuk setiap wajah: hitung skor berdasarkan (1) deteksi mata, (2) aktivitas mulut, (3) optical flow motion
+        - Prioritas scoring: Mata terdeteksi → Aktivitas mulut → Pergerakan umum
+        - Pilih wajah dengan skor tertinggi sebagai speaker untuk fokus panning
+        - Smoothing trajectory dengan window 3 frames (lebih responsif)
+        - Frame sampling 180 frames untuk tracking lebih akurat
+      - `FFmpeg` memotong video, menyesuaikan rasio, dan menempelkan subtitle dengan dynamic panning path.
       - Backend juga menyiapkan metadata klip (`clips_metadata`) yang mencakup `topic`, `start`, `end`, dan `aspect_ratio` untuk setiap output video.
    - Semua file ditulis ke folder `/app/data` di dalam container.
 4. **Volume Mapping:** Folder `/app/data` di container dipetakan ke folder `/data` di Windows. Electron dapat langsung melihat dan membuka video hasil render dari folder tersebut.
@@ -51,8 +61,10 @@ Sistem ini menggunakan arsitektur Hybrid-Container. Antarmuka pengguna (Electron
 			Informasi yang ditampilkan seharusnya informatif, user friendly, clean, dan menarik. Saat menampilkan status pipeline di terminal UI, yang berubah itu datanya jangan langsung print berulang-ulang. 
 			- Bagian header terminal menampilkan loading indicator dan presentase total proses keseluruhan dari job pipeline. 
 			- Informasi yang ditampilan berdasarkan proses pipeline/job status dan setiap bagian prosesnya harus ganti line. Berikut adalah job status:
-				* Downloading video
-						- Tampilkan persentase download video
+				* Downloading video / Menyiapkan unduhan video
+						- Tampilkan persentase download video (jika download baru)
+						- Jika menggunakan cache: Tampilkan **"✓ Video sudah diunduh sebelumnya (menggunakan cache)"** dengan tanda centang
+						- Jika download baru: Tampilkan **"✓ Video berhasil diunduh"** dengan tanda centang
 						- Setelah status selesai, indicator loading berubah menjadi tanda centang.
 						- Ditampilkan dalam 1 line dan yang berubah adalah datanya. Jangan print line baru berulang-ulang!.
 				* Proses mengekstrak audio dan transkripsi video
