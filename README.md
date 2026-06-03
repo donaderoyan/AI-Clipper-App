@@ -133,8 +133,7 @@ curl 'http://localhost:8000/api/v1/status/{job_id}'
 ├── data/                  # Shared volume untuk raw, temp, output
 ├── docker-compose.yml     # Orkestrasi Docker
 ├── README.md              # File ini
-├── VISION_PANNING_GUIDE.md # Catatan smart panning
-└── ARCHITECTURE.md        # Diagram sistem dan arsitektur
+└── docs/                  # Folder berisi dokumentasi, arsitektur, panduan, dll.
 ```
 
 ## Troubleshooting
@@ -273,7 +272,7 @@ docker system prune -a --volumes
 ## Support
 
 Jika ada error atau pertanyaan:
-1. Cek `ARCHITECTURE.md` untuk diagram sistem
-2. Cek `CLAUDE.md` untuk AI Guidelines
+1. Cek `docs/ARCHITECTURE.md` untuk diagram sistem
+2. Cek `docs/CLAUDE.md` untuk AI Guidelines
 3. Baca log Docker: `docker logs ai_clipper_backend`
 4. Baca log Frontend: cek console browser DevTools

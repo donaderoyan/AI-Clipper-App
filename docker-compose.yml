@@ -14,8 +14,8 @@ services:
     environment:
       # Jika Anda menjalankan Ollama di Windows (Host), Docker mengaksesnya via URL ini
       - OLLAMA_URL=http://host.docker.internal:11434
-    env_file:
-      - .env
+    # env_file:
+    #   - .env
 
   frontend:
     build:
@@ -31,8 +31,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend
-    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
-
+    command: [ "npm", "run", "dev", "--", "--host", "0.0.0.0" ]
     # Jika Anda ingin menjalankan versi build frontend sebagai static site,
     # ganti command di atas dengan container web server (nginx) setelah build.
     # Untuk sekarang, setup ini memudahkan pengembangan React/Vite di Docker.
