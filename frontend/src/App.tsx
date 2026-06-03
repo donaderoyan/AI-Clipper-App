@@ -1,10 +1,28 @@
 import { useState, useEffect } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { TerminalUI } from './components/TerminalUI';
-import { Video, Play, FileText, X, Clock } from 'lucide-react';
+import { Video } from 'lucide-react';
 import { Plyr } from 'plyr-react';
 import 'plyr/dist/plyr.css';
 import './App.css';
+import {
+  Box,
+  Typography,
+  TextField,
+  MenuItem,
+  Button,
+  Card,
+  CardContent,
+  CardActionArea,
+  Chip,
+  IconButton,
+  Modal,
+  Stack
+} from '@mui/material';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import CloseIcon from '@mui/icons-material/Close';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import DescriptionIcon from '@mui/icons-material/Description';
 
 interface ClipResult {
   videoUrl: string;
@@ -32,7 +50,7 @@ function App() {
   const [errors, setErrors] = useState<{ [k: string]: string }>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [results, setResults] = useState<ClipResult[]>([]);
-  const [activeVideo, setActiveVideo] = useState<string | null>(null);
+  const [activeVideo, setActiveVideo] = useState<ClipResult | null>(null);
   const [sessionId, setSessionId] = useState<number>(0);
 
   useEffect(() => {
@@ -178,203 +196,228 @@ function App() {
   };
 
   return (
-    <div className="app-container">
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, height: '100vh', width: '100vw', overflow: 'hidden', bgcolor: 'background.default', color: 'text.primary' }}>
       {/* Left Panel: Input Form */}
-      <aside className="left-panel">
-        <div className="panel-header">
-          <Video className="brand-icon" />
-          <h1>AI Clipper</h1>
-        </div>
+      <Box component="aside" sx={{ width: { xs: '100%', md: '400px' }, flexShrink: 0, p: 3, borderRight: 1, borderColor: 'divider', overflowY: 'auto', bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Video color="#2563eb" size={32} />
+          <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold' }}>
+            AI Clipper
+          </Typography>
+        </Box>
         
-        <form className="input-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="url" title="Masukkan URL video YouTube yang ingin diproses. Contoh: https://www.youtube.com/watch?v=...">URL YouTube *</label>
-            <input 
-              type="url" 
-              id="url"
-              required
-              placeholder="https://www.youtube.com/watch?v=..."
-              value={url}
-              onChange={(e) => { const v = e.target.value; setUrl(v); if (v && v.trim() !== '') setErrors(prev => { const p = { ...prev }; delete p.url; return p; }); }}
-              onBlur={() => { if (!url) setErrors(prev => ({ ...prev, url: 'URL video wajib diisi.' })); else setErrors(prev => { const p = { ...prev }; delete p.url; return p; }) }}
-              title="Masukkan URL video YouTube yang akan diklip dari layanan ini."
+        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <TextField
+            label="URL YouTube"
+            type="url"
+            required
+            placeholder="https://www.youtube.com/watch?v=..."
+            value={url}
+            onChange={(e) => { const v = e.target.value; setUrl(v); if (v && v.trim() !== '') setErrors(prev => { const p = { ...prev }; delete p.url; return p; }); }}
+            onBlur={() => { if (!url) setErrors(prev => ({ ...prev, url: 'URL video wajib diisi.' })); else setErrors(prev => { const p = { ...prev }; delete p.url; return p; }) }}
+            error={!!errors.url}
+            helperText={errors.url || "Masukkan URL YouTube yang valid."}
+            disabled={isProcessing}
+            fullWidth
+            size="small"
+          />
+
+          <Stack direction="row" spacing={2}>
+            <TextField
+              select
+              label="Rasio Aspek"
+              value={ratio}
+              onChange={(e) => setRatio(e.target.value)}
               disabled={isProcessing}
-              className={errors.url ? 'invalid' : ''}
-            />
-            <small className="field-helper">Masukkan URL YouTube yang valid.</small>
-            {errors.url && <small className="field-error">{`* ${errors.url}`}</small>}
-          </div>
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="9:16">Vertikal (9:16)</MenuItem>
+              <MenuItem value="16:9">Horizontal (16:9)</MenuItem>
+            </TextField>
 
-          <div className="form-row">
-            <div className="form-group half">
-              <label htmlFor="ratio" title="Pilih rasio aspek keluaran video: vertikal untuk Reels/TikTok, horizontal untuk YouTube.">Rasio Aspek</label>
-              <select id="ratio" value={ratio} onChange={(e) => setRatio(e.target.value)} disabled={isProcessing} title="Pilih rasio keluaran video">
-                <option value="9:16">Vertikal (9:16)</option>
-                <option value="16:9">Horizontal (16:9)</option>
-              </select>
-            </div>
-            <div className="form-group half">
-              <label htmlFor="duration" title="Durasi target klip dalam detik. Kosongkan untuk biarkan AI memilih durasi terbaik.">Durasi Target (detik)</label>
-              <input 
-                type="number" 
-                id="duration"
-                min="1"
-                step="1"
-                inputMode="numeric"
-                pattern="\d*"
-                placeholder="mis. 60"
-                value={duration}
-                onChange={(e) => { const raw = e.target.value; const sanitized = raw.replace(/\D/g, ''); setDuration(sanitized); if (sanitized && !isNaN(parseInt(sanitized,10)) && parseInt(sanitized,10) > 0) setErrors(prev => { const p = { ...prev }; delete p.duration; return p; }); }}
-                onBlur={() => { if (duration && (isNaN(parseInt(duration,10)) || parseInt(duration,10) <= 0)) setErrors(prev => ({ ...prev, duration: 'Durasi harus angka positif.' })); else setErrors(prev => { const p = { ...prev }; delete p.duration; return p; }) }}
-                title="Masukkan durasi yang Anda inginkan untuk setiap klip (dalam detik)."
-                disabled={isProcessing}
-                className={errors.duration ? 'invalid' : ''}
-              />
-              <small className="field-helper">Hanya menerima angka bulat positif (tanpa desimal).</small>
-              {errors.duration && <small className="field-error">{`* ${errors.duration}`}</small>}
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="count" title="Maksimum jumlah klip yang diinginkan dari pemrosesan ini.">Maks Jumlah Klip</label>
-            <input 
-              type="number" 
-              id="count"
-              min="1"
-              step="1"
-              inputMode="numeric"
-              pattern="\d*"
-              placeholder="mis. 5"
-              value={count}
-              onChange={(e) => { const raw = e.target.value; const sanitized = raw.replace(/\D/g, ''); setCount(sanitized); if (sanitized && !isNaN(parseInt(sanitized,10)) && parseInt(sanitized,10) > 0) setErrors(prev => { const p = { ...prev }; delete p.count; return p; }); }}
-              onBlur={() => { if (count && (isNaN(parseInt(count,10)) || parseInt(count,10) <= 0)) setErrors(prev => ({ ...prev, count: 'Jumlah keluaran harus angka positif.' })); else setErrors(prev => { const p = { ...prev }; delete p.count; return p; }) }}
-              title="Batas jumlah file klip keluaran yang dihasilkan."
+            <TextField
+              label="Durasi Target (dtk)"
+              type="text"
+              placeholder="mis. 60"
+              value={duration}
+              onChange={(e) => { const raw = e.target.value; const sanitized = raw.replace(/\D/g, ''); setDuration(sanitized); if (sanitized && !isNaN(parseInt(sanitized,10)) && parseInt(sanitized,10) > 0) setErrors(prev => { const p = { ...prev }; delete p.duration; return p; }); }}
+              onBlur={() => { if (duration && (isNaN(parseInt(duration,10)) || parseInt(duration,10) <= 0)) setErrors(prev => ({ ...prev, duration: 'Harus angka positif.' })); else setErrors(prev => { const p = { ...prev }; delete p.duration; return p; }) }}
+              error={!!errors.duration}
+              helperText={errors.duration}
               disabled={isProcessing}
-              className={errors.count ? 'invalid' : ''}
+              fullWidth
+              size="small"
             />
-            <small className="field-helper">Hanya menerima angka bulat positif (tanpa desimal).</small>
-            {errors.count && <small className="field-error">{`* ${errors.count}`}</small>}
-          </div>
+          </Stack>
 
-          <div className="form-group">
-            <label htmlFor="prompt" title="Berikan konteks singkat untuk membantu AI menemukan momen yang relevan (opsional).">Konteks AI (opsional)</label>
-            <textarea 
-              id="prompt"
-              rows={3}
-              placeholder="Contoh: Cari momen emosional, puncak narasi, atau kutipan yang kuat"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              disabled={isProcessing}
-              title="Contoh: fokus pada momen emosional, kutipan menarik, atau insiden unik."
-            />
-          </div>
+          <TextField
+            label="Maks Jumlah Klip"
+            type="text"
+            placeholder="mis. 5"
+            value={count}
+            onChange={(e) => { const raw = e.target.value; const sanitized = raw.replace(/\D/g, ''); setCount(sanitized); if (sanitized && !isNaN(parseInt(sanitized,10)) && parseInt(sanitized,10) > 0) setErrors(prev => { const p = { ...prev }; delete p.count; return p; }); }}
+            onBlur={() => { if (count && (isNaN(parseInt(count,10)) || parseInt(count,10) <= 0)) setErrors(prev => ({ ...prev, count: 'Harus angka positif.' })); else setErrors(prev => { const p = { ...prev }; delete p.count; return p; }) }}
+            error={!!errors.count}
+            helperText={errors.count}
+            disabled={isProcessing}
+            fullWidth
+            size="small"
+          />
 
-          <div className="form-group">
-            <label htmlFor="timestamps" title="Masukkan rentang waktu khusus jika ingin menentukan potongan sendiri. Format: MM:SS-MM:SS, pisah multiple dengan koma.">Timestamp Kustom (opsional)</label>
-            <input 
-              type="text" 
-              id="timestamps"
-              placeholder="mis. 01:20-02:00, 05:00-06:30"
-              value={timestamps}
-              onChange={(e) => { const v = e.target.value; setTimestamps(v); if (validateTimestamps(v)) setErrors(prev => { const p = { ...prev }; delete p.timestamps; return p; }); }}
-              onBlur={() => { if (timestamps && !validateTimestamps(timestamps)) setErrors(prev => ({ ...prev, timestamps: 'Format timestamp tidak valid.' })); else setErrors(prev => { const p = { ...prev }; delete p.timestamps; return p; }) }}
-              disabled={isProcessing}
-              className={errors.timestamps ? 'invalid' : ''}
-            />
-            <small className="field-helper">Format: MM:SS-MM:SS. Pisahkan multiple dengan koma.</small>
-            {errors.timestamps && <small className="field-error">{`* ${errors.timestamps}`}</small>}
-          </div>
+          <TextField
+            label="Konteks AI (opsional)"
+            multiline
+            rows={3}
+            placeholder="Contoh: Cari momen emosional, puncak narasi..."
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            disabled={isProcessing}
+            fullWidth
+            size="small"
+          />
 
-          <button type="submit" className="btn-submit" disabled={isProcessing}>
-            <Play size={18} />
+          <TextField
+            label="Timestamp Kustom (opsional)"
+            type="text"
+            placeholder="mis. 01:20-02:00, 05:00-06:30"
+            value={timestamps}
+            onChange={(e) => { const v = e.target.value; setTimestamps(v); if (validateTimestamps(v)) setErrors(prev => { const p = { ...prev }; delete p.timestamps; return p; }); }}
+            onBlur={() => { if (timestamps && !validateTimestamps(timestamps)) setErrors(prev => ({ ...prev, timestamps: 'Format tidak valid.' })); else setErrors(prev => { const p = { ...prev }; delete p.timestamps; return p; }) }}
+            error={!!errors.timestamps}
+            helperText={errors.timestamps || "Format: MM:SS-MM:SS. Pisahkan dgn koma."}
+            disabled={isProcessing}
+            fullWidth
+            size="small"
+          />
+
+          <Button 
+            type="submit" 
+            variant="contained" 
+            color="primary" 
+            size="large"
+            disabled={isProcessing}
+            startIcon={<PlayArrowIcon />}
+            sx={{ mt: 1, py: 1.5, fontWeight: 'bold' }}
+          >
             {isProcessing ? 'Mengirim...' : 'Mulai Proses'}
-          </button>
-        </form>
-      </aside>
+          </Button>
+        </Box>
+      </Box>
 
       {/* Right Panel: Terminal Pipeline and Results */}
-      <main className="right-panel">
+      <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         
-        <div className="terminal-wrapper">
+        <Box sx={{ height: { xs: '30vh', md: '40%' }, borderBottom: 1, borderColor: 'divider', overflow: 'hidden' }}>
           <TerminalUI key={`term-${sessionId}`} subscribe={subscribe} height="100%" />
-        </div>
+        </Box>
 
-        <div className="results-wrapper">
-          <h2 className="results-title">Hasil Kliping</h2>
+        <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 3, bgcolor: '#121212' }}>
+          <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', mb: 3 }}>
+            Hasil Kliping
+          </Typography>
+          
           {results.length === 0 ? (
-            <div className="empty-results-state">
-              <p>Belum ada hasil kliping video. Silakan kirim proses baru.</p>
-            </div>
+            <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+              <Typography variant="body1">Belum ada hasil kliping video. Silakan kirim proses baru.</Typography>
+            </Box>
           ) : (
-            <div className="results-grid">
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 3 }}>
               {results.map((res, idx) => (
-                <div key={idx} className="result-card" onClick={() => setActiveVideo(res.videoUrl)}>
-                  <div className="result-card-header">
-                    <span className="clip-number">Klip #{idx + 1}</span>
-                  </div>
-                  <div className="video-container" style={{ aspectRatio: res.aspectRatio.replace(':', ' / ') }}>
-                    {/* Keep video element but without controls so it acts as a thumbnail */}
-                    <video src={res.videoUrl} preload="metadata" />
-                    <div className="play-overlay">
-                      <Play size={48} fill="white" color="white" />
-                    </div>
-                  </div>
-                  <div className="result-info">
-                    <div className="topic-section">
-                      <h3 className="video-topic" title={res.topic}>{res.topic}</h3>
-                    </div>
-                    <div className="meta-info">
-                      <div className="duration-info">
-                        <Clock size={14} />
-                        <span>{res.duration}</span>
-                      </div>
+                <Card 
+                  key={idx}
+                  sx={{ 
+                    height: '100%', 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    transition: 'transform 0.2s',
+                    '&:hover': { transform: 'translateY(-4px)', boxShadow: 6 }
+                  }}
+                >
+                  <CardActionArea onClick={() => setActiveVideo(res)} sx={{ position: 'relative' }}>
+                    <Box sx={{ position: 'relative', paddingTop: res.aspectRatio === '16:9' ? '56.25%' : '177.78%', bgcolor: 'black' }}>
+                      <video 
+                        src={res.videoUrl} 
+                        preload="metadata" 
+                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+                      />
+                      <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bgcolor: 'rgba(0,0,0,0.5)', borderRadius: '50%', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <PlayArrowIcon sx={{ fontSize: 48, color: 'white' }} />
+                      </Box>
+                      <Chip 
+                        label={`Klip #${idx + 1}`} 
+                        color="primary" 
+                        size="small" 
+                        sx={{ position: 'absolute', top: 8, left: 8, fontWeight: 'bold' }} 
+                      />
+                    </Box>
+                  </CardActionArea>
+                  <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Typography variant="subtitle1" component="h3" sx={{ 
+                      fontWeight: 'bold',
+                      display: '-webkit-box', 
+                      WebkitLineClamp: 2, 
+                      WebkitBoxOrient: 'vertical', 
+                      overflow: 'hidden',
+                      lineHeight: 1.2,
+                      mb: 1
+                    }}>
+                      {res.topic}
+                    </Typography>
+                    
+                    <Stack direction="row" spacing={2} sx={{ mt: 'auto', flexWrap: 'wrap', gap: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                        <AccessTimeIcon fontSize="small" />
+                        <Typography variant="body2">{res.duration}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                        <Typography variant="body2">[{formatClipTime(res.start)} - {formatClipTime(res.end)}]</Typography>
+                      </Box>
+                    </Stack>
+                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                      <Chip label={res.aspectRatio} size="small" variant="outlined" />
                       {res.srtName && (
-                        <div className="subtitle-badge">
-                          <FileText size={12} />
-                          <span>Subtitle</span>
-                        </div>
+                        <Chip icon={<DescriptionIcon fontSize="small" />} label="Subtitle" size="small" color="secondary" variant="outlined" />
                       )}
-                    </div>
-                  </div>
-                  <div className="detail-popup">
-                    <div className="popup-content">
-                      <p><strong>Topik:</strong> {res.topic}</p>
-                      <p><strong>Durasi:</strong> {res.duration}</p>
-                      <p><strong>Rentang:</strong> {formatClipTime(res.start)} - {formatClipTime(res.end)}</p>
-                      <p><strong>Aspect:</strong> {res.aspectRatio}</p>
-                      {res.srtName && <p><strong>Subtitle:</strong> {res.srtName}</p>}
-                    </div>
-                  </div>
-                </div>
+                    </Stack>
+                  </CardContent>
+                </Card>
               ))}
-            </div>
+            </Box>
           )}
-        </div>
-      </main>
+        </Box>
+      </Box>
 
       {/* Video Modal Overlay */}
-      {activeVideo && (
-        <div className="video-modal-overlay" onClick={() => setActiveVideo(null)}>
-          <div className="video-modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="btn-close-modal" onClick={() => setActiveVideo(null)}>
-              <X size={24} />
-            </button>
-            <div className={`modal-video aspect-${ratio.replace(':', '-')}`} onClick={(e) => e.stopPropagation()}>
+      <Modal
+        open={!!activeVideo}
+        onClose={() => setActiveVideo(null)}
+        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}
+      >
+        <Box sx={{ position: 'relative', width: '100%', maxWidth: ratio === '16:9' ? '1000px' : '450px', bgcolor: 'black', borderRadius: 2, overflow: 'hidden', outline: 'none', boxShadow: 24 }}>
+          <IconButton 
+            onClick={() => setActiveVideo(null)} 
+            sx={{ position: 'absolute', top: 8, right: 8, color: 'white', zIndex: 10, bgcolor: 'rgba(0,0,0,0.5)', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }}
+          >
+            <CloseIcon />
+          </IconButton>
+          {activeVideo && (
+            <Box sx={{ width: '100%', aspectRatio: ratio.replace(':', '/') }}>
               <Plyr
                 source={{
                   type: 'video',
-                  sources: [{ src: activeVideo, type: 'video/mp4' }]
+                  sources: [{ src: activeVideo.videoUrl, type: 'video/mp4' }]
                 }}
                 options={{
                   autoplay: true,
-                  controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen']
+                  controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen'],
                 }}
               />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+            </Box>
+          )}
+        </Box>
+      </Modal>
+    </Box>
   );
 }
 

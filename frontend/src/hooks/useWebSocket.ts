@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 type WebSocketStatus = 'disconnected' | 'connecting' | 'connected';
 
@@ -47,24 +47,24 @@ export function useWebSocket(url: string | null) {
     }
   };
 
-  const notifyListeners = (data: string) => {
+  const notifyListeners = useCallback((data: string) => {
     listeners.current.forEach(listener => listener(data));
-  };
+  }, []);
 
-  const subscribe = (listener: (data: string) => void) => {
+  const subscribe = useCallback((listener: (data: string) => void) => {
     listeners.current.push(listener);
     return () => {
       listeners.current = listeners.current.filter(l => l !== listener);
     };
-  };
+  }, []);
 
-  const sendMessage = (message: string) => {
+  const sendMessage = useCallback((message: string) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       ws.current.send(message);
     } else {
       notifyListeners(JSON.stringify({ status: 'ERROR', message: 'Cannot send message, not connected.', step: 'error' }));
     }
-  };
+  }, [notifyListeners]);
 
   useEffect(() => {
     if (url) {

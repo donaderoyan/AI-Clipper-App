@@ -65,9 +65,9 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
         
         # Show cache status to user
         if is_cached:
-            update_job_status(job_id, JobState.running, "✓ Video sudah diunduh sebelumnya (menggunakan cache)", step="download", progress=15)
+            update_job_status(job_id, JobState.running, "Video sudah diunduh sebelumnya (menggunakan cache)", step="download", progress=15)
         else:
-            update_job_status(job_id, JobState.running, "✓ Video berhasil diunduh", step="download", progress=15)
+            update_job_status(job_id, JobState.running, "Video berhasil diunduh", step="download", progress=15)
         
         update_job_status(job_id, JobState.running, "Mengekstrak audio dan transkripsi video...", step="transcribe", progress=40, in_place=True)
         transcript_text, transcript_path, segments = transcribe_video(video_path, work_dir)

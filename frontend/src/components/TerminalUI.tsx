@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
-import './TerminalUI.css';
-
-interface TerminalUIProps {
+import { Box, Typography, LinearProgress, CircularProgress, useTheme } from '@mui/material';interface TerminalUIProps {
   subscribe: (listener: (data: string) => void) => () => void;
   height?: string;
 }
@@ -13,6 +11,7 @@ export function TerminalUI({ subscribe, height = '300px' }: TerminalUIProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const theme = useTheme();
 
   const [globalProgress, setGlobalProgress] = useState(0);
   const [globalStatus, setGlobalStatus] = useState('IDLE');
@@ -23,9 +22,9 @@ export function TerminalUI({ subscribe, height = '300px' }: TerminalUIProps) {
 
     const term = new Terminal({
       theme: {
-        background: '#1e1e1e',
-        foreground: '#f3f3f3',
-        cursor: '#f3f3f3',
+        background: theme.palette.background.paper,
+        foreground: theme.palette.text.primary,
+        cursor: theme.palette.text.primary,
         selectionBackground: 'rgba(255, 255, 255, 0.3)',
       },
       fontFamily: '"Fira Code", monospace, "Courier New", Courier',
@@ -44,7 +43,7 @@ export function TerminalUI({ subscribe, height = '300px' }: TerminalUIProps) {
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    term.writeln('\x1b[36mInitializing AI-Clipper Terminal...\x1b[0m');
+    term.writeln('\x1b[36mMemulai Terminal AI-Clipper...\x1b[0m');
 
     const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
     
@@ -68,83 +67,132 @@ export function TerminalUI({ subscribe, height = '300px' }: TerminalUIProps) {
         const parsed = JSON.parse(data.trim());
         
         // --- GLOBAL STATE LOGIC ---
-        if (parsed.progress !== undefined) {
-          setGlobalProgress(Number(parsed.progress));
-        }
-        if (parsed.status) {
+        let currentStatusStr = globalStatus;
+        if (parsed.status !== undefined && parsed.status !== null) {
           const s = String(parsed.status).toUpperCase();
-          setGlobalStatus(s);
-          setGlobalIsRunning(s === 'RUNNING');
+          if (s !== '') {
+             currentStatusStr = s;
+             setGlobalStatus(s);
+             setGlobalIsRunning(s === 'RUNNING' || s === 'PROCESSING');
+          }
+        }
+        
+        if (parsed.progress !== undefined) {
+          const p = Number(parsed.progress);
+          if (currentStatusStr.includes('SUCCESS') || currentStatusStr.includes('DONE')) {
+             setGlobalProgress(100);
+          } else {
+             setGlobalProgress(p);
+          }
+        } else if (currentStatusStr.includes('SUCCESS') || currentStatusStr.includes('DONE')) {
+           setGlobalProgress(100);
         }
         // --------------------------
 
         let baseText = '';
-        
         const currentStep = parsed.step || '';
         const message = parsed.message || parsed.msg || parsed.detail || parsed.text || '';
-        const progressVal = parsed.progress ?? parsed.percent ?? parsed.p;
         const status = parsed.status || parsed.step || parsed.task;
 
-        const isRunning = status && String(status).toUpperCase().includes('RUNNING');
-        
         if (message) {
-            baseText += `\x1b[37m${message}\x1b[0m `;
-        }
-        if (!status && progressVal === undefined && !message) {
-           baseText += `\x1b[37m${JSON.stringify(parsed)}\x1b[0m`;
+            baseText = `\x1b[37m${message}\x1b[0m`;
+        } else if (currentStep) {
+            baseText = `\x1b[37m${currentStep}\x1b[0m`;
         }
 
-        const isNewStep = currentStep && currentStep !== stateRef.step;
+        const isSuccess = String(parsed.status).toLowerCase() === 'success';
+        const hasFiles = Array.isArray(parsed.output_files) && parsed.output_files.length > 0;
+        
+        // Handle final payload with output files directly
+        if (isSuccess && hasFiles) {
+             if (stateRef.step !== 'FINALIZED') {
+                 stateRef.isRunning = false;
+                 if (stateRef.step !== '' && stateRef.step !== 'FINALIZED') {
+                     term.write(`\r\x1b[2K\x1b[32m[✓]\x1b[0m ${stateRef.baseText}\r\n`);
+                 }
+                 term.write(`\r\x1b[2K\x1b[32m[✓]\x1b[0m \x1b[37mSemua proses berhasil diselesaikan.\x1b[0m\r\n`);
+                 stateRef.step = 'FINALIZED';
+             }
+             return;
+        }
 
-        // Briefly stop spinner so we can safely draw new lines if needed
+        // Handle completely raw JSON with no standard fields
+        if (!status && parsed.progress === undefined && !message) {
+           stateRef.isRunning = false;
+           if (stateRef.step !== '' && stateRef.step !== 'FINALIZED') {
+               term.write(`\r\x1b[2K\x1b[32m[✓]\x1b[0m ${stateRef.baseText}\r\n`);
+               stateRef.step = '';
+           }
+           term.write(`\r\x1b[2K\x1b[37m${JSON.stringify(parsed)}\x1b[0m\r\n`);
+           return;
+        }
+
+        const isRunning = status && String(status).toUpperCase().includes('RUNNING');
+        const statusStr = String(status).toUpperCase();
+
+        // If there is no step defined, treat as a standalone log
+        if (!currentStep) {
+            if (message) {
+                if (stateRef.step !== '' && stateRef.step !== 'FINALIZED') {
+                    term.write(`\r\x1b[2K\x1b[32m[✓]\x1b[0m ${stateRef.baseText}\r\n`);
+                    stateRef.step = '';
+                }
+                
+                if (statusStr.includes('ERROR') || statusStr.includes('FAIL')) {
+                    term.write(`\r\x1b[2K\x1b[31m[✗]\x1b[0m ${baseText}\r\n`);
+                } else if (statusStr.includes('SUCCESS') || statusStr.includes('DONE')) {
+                    term.write(`\r\x1b[2K\x1b[32m[✓]\x1b[0m ${baseText}\r\n`);
+                } else if (statusStr) {
+                    term.write(`\r\x1b[2K\x1b[36m[${statusStr}]\x1b[0m ${baseText}\r\n`);
+                } else {
+                    term.write(`\r\x1b[2K${baseText}\r\n`);
+                }
+            }
+            return;
+        }
+
+        const isNewStep = currentStep !== stateRef.step;
+
         stateRef.isRunning = false;
 
         if (isNewStep) {
-            if (stateRef.step !== '') {
+            if (stateRef.step !== '' && stateRef.step !== 'FINALIZED') {
                 // Finalize the previous step with a checkmark before moving to the next line
                 term.write(`\r\x1b[2K\x1b[32m[✓]\x1b[0m ${stateRef.baseText}\r\n`);
             }
             stateRef.step = currentStep;
+            stateRef.baseText = baseText; 
+        } else {
+            // Update base text for the current step if it changed
+            if (baseText) stateRef.baseText = baseText;
         }
 
-        if (!isRunning) {
-           let statusLine = '';
-           const statusStr = String(status).toUpperCase();
-           if (statusStr.includes('SUCCESS') || statusStr.includes('DONE')) {
-               statusLine = `\x1b[32m[✓]\x1b[0m ${baseText}`;
-           } else if (statusStr.includes('ERROR') || statusStr.includes('FAIL')) {
-               statusLine = `\x1b[31m[✗]\x1b[0m ${baseText}`;
-           } else if (statusStr) {
-               statusLine = `\x1b[36m[${statusStr}]\x1b[0m ${baseText}`;
-           } else {
-               statusLine = baseText;
-           }
-           term.write(`\r\x1b[2K${statusLine}`);
-           if (statusStr.includes('SUCCESS') || statusStr.includes('ERROR') || statusStr.includes('FAIL')) {
-               term.write('\r\n');
-               stateRef.step = ''; // Reset so we don't finalize it again if a new job starts
-           }
+        if (statusStr.includes('ERROR') || statusStr.includes('FAIL')) {
+            term.write(`\r\x1b[2K\x1b[31m[✗]\x1b[0m ${stateRef.baseText}\r\n`);
+            stateRef.step = ''; // Reset so next step starts fresh
+        } else if (isRunning) {
+            stateRef.isRunning = true;
+            const spinner = spinnerFrames[Math.floor(Date.now() / 80) % spinnerFrames.length];
+            term.write(`\r\x1b[2K\x1b[36m[${spinner}]\x1b[0m ${stateRef.baseText}`);
+        } else if (statusStr.includes('SUCCESS') || statusStr.includes('DONE')) {
+            // Write success on the current line, DO NOT append \r\n to prevent double prints.
+            term.write(`\r\x1b[2K\x1b[32m[✓]\x1b[0m ${stateRef.baseText}`);
+        } else if (statusStr) {
+            term.write(`\r\x1b[2K\x1b[36m[${statusStr}]\x1b[0m ${stateRef.baseText}`);
         } else {
-           // Initial draw before interval catches up
-           const spinner = spinnerFrames[Math.floor(Date.now() / 80) % spinnerFrames.length];
-           term.write(`\r\x1b[2K\x1b[36m[${spinner}]\x1b[0m ${baseText}`);
-           
-           // Resume spinner
-           stateRef.isRunning = true;
-           stateRef.baseText = baseText;
+            term.write(`\r\x1b[2K${stateRef.baseText}`);
         }
 
       } catch (e) {
-        // Not JSON = System message. Suspend animation, print cleanly, reset step.
+        // Not JSON = System message. Suspend animation, print cleanly.
         stateRef.isRunning = false; 
         const formattedData = data.replace(/\r\n|\n|\r/g, '\r\n');
         
-        if (stateRef.step !== '') {
-            // Finalize previous step if system message interrupts
+        if (stateRef.step !== '' && stateRef.step !== 'FINALIZED') {
             term.write(`\r\x1b[2K\x1b[32m[✓]\x1b[0m ${stateRef.baseText}\r\n`);
             stateRef.step = '';
         }
-        term.write(`\r\x1b[2K${formattedData}`);
+        term.write(`\r\x1b[2K${formattedData}\r\n`);
       }
     });
 
@@ -162,29 +210,39 @@ export function TerminalUI({ subscribe, height = '300px' }: TerminalUIProps) {
   }, [subscribe]);
 
   return (
-    <div className="terminal-container" style={{ height }}>
-      <div className="terminal-header">
-        <span className="terminal-title">System Pipeline Console</span>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height, bgcolor: 'background.paper', borderRadius: 1, overflow: 'hidden' }}>
+      <Box sx={{ 
+        bgcolor: 'rgba(0, 0, 0, 0.2)', 
+        px: 2, 
+        py: 1, 
+        borderBottom: 1, 
+        borderColor: 'divider', 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 2 
+      }}>
+        <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 'bold', letterSpacing: 1, whiteSpace: 'nowrap' }}>
+          Konsol Sistem
+        </Typography>
         
-        <div className="terminal-global-progress">
-           <div className="progress-info">
-              <span>{globalStatus}</span>
-              <span>{globalProgress.toFixed(1)}%</span>
-           </div>
-           <div className="progress-bar-bg">
-              <div className="progress-bar-fill" style={{ width: `${globalProgress}%` }}></div>
-           </div>
-        </div>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 2, bgcolor: 'background.default', px: 2, py: 0.5, borderRadius: 1, border: 1, borderColor: 'divider' }}>
+           <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace', minWidth: '100px' }}>
+              {globalStatus} - {globalProgress.toFixed(1)}%
+           </Typography>
+           <Box sx={{ flex: 1 }}>
+              <LinearProgress variant="determinate" value={globalProgress} color="success" sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)' }} />
+           </Box>
+        </Box>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
-           {globalIsRunning && <div className="header-spinner"></div>}
-           <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: globalIsRunning ? '#f59e0b' : '#22c55e', boxShadow: `0 0 8px ${globalIsRunning ? '#f59e0b' : '#22c55e'}` }}></div>
-           <span style={{ fontSize: '10px', color: '#a0a0a0', fontFamily: 'monospace', fontWeight: 600, letterSpacing: '1px' }}>
-              {globalIsRunning ? 'RUNNING' : 'READY'}
-           </span>
-        </div>
-      </div>
-      <div className="terminal-body" ref={terminalRef}></div>
-    </div>
+        <Box sx={{ ml: 'auto', display: 'flex', gap: 1, alignItems: 'center' }}>
+           {globalIsRunning && <CircularProgress size={14} thickness={5} />}
+           <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: globalIsRunning ? 'warning.main' : 'success.main', boxShadow: `0 0 8px ${globalIsRunning ? theme.palette.warning.main : theme.palette.success.main}` }} />
+           <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 1 }}>
+              {globalIsRunning ? 'BERJALAN' : 'SIAP'}
+           </Typography>
+        </Box>
+      </Box>
+      <Box sx={{ flex: 1, p: 1.5, overflow: 'hidden', '& .xterm': { height: '100%' } }} ref={terminalRef}></Box>
+    </Box>
   );
 }
