@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 from pathlib import Path
@@ -46,7 +47,11 @@ def calculate_crop(video_path: Path, aspect_ratio: str, start: float = 0.0, end:
 
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
     eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
-    mouth_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_mcs_mouth.xml')
+    
+    mouth_cascade_path = cv2.data.haarcascades + 'haarcascade_mcs_mouth.xml'
+    if not os.path.exists(mouth_cascade_path):
+        mouth_cascade_path = cv2.data.haarcascades + 'haarcascade_smile.xml'
+    mouth_cascade = cv2.CascadeClassifier(mouth_cascade_path)
 
     # Use new speaker detection analysis
     focus_positions = _analyze_frames_with_speaker_detection(
@@ -111,7 +116,11 @@ def calculate_crop_path(
 
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
     eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
-    mouth_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_mcs_mouth.xml')
+    
+    mouth_cascade_path = cv2.data.haarcascades + 'haarcascade_mcs_mouth.xml'
+    if not os.path.exists(mouth_cascade_path):
+        mouth_cascade_path = cv2.data.haarcascades + 'haarcascade_smile.xml'
+    mouth_cascade = cv2.CascadeClassifier(mouth_cascade_path)
 
     # Use new speaker detection analysis
     crop_positions = _analyze_frames_with_speaker_detection(
