@@ -9,7 +9,7 @@ Memproses penceritaan bergaya dokumenter, menemukan momen puncak narasi (seperti
 - Pemutar video modal menggunakan kontrol HTML5 standar sehingga seek bar atau timeline bisa digunakan untuk melompat ke menit yang diinginkan.
 
 ## Tech Stack
-- **Frontend:** Electron, TypeScript, React (atau Vite), Tailwind CSS.
+- **Frontend:** Electron, TypeScript, React (Vite), Material UI (MUI).
 - **Backend:** Python 3.10+, FastAPI, Docker, Docker Compose.
 - **Infrastruktur:** Docker & Docker Compose (untuk Backend & dependensi OS seperti FFmpeg).
 - **Pemrosesan AI & Media:** yt-dlp, faster-whisper, Ollama (Local LLM), OpenCV, FFmpeg.

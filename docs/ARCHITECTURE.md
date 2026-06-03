@@ -54,7 +54,7 @@ Sistem ini menggunakan arsitektur Hybrid-Container. Antarmuka pengguna (Electron
 6. **Output:** Video selesai dirender di folder lokal, UI menampilkan notifikasi sukses. File subtitle .srt tersimpan dalam folder yang sama dengan video.
 
 ## Frontend UI/UX
-1. Single page dibagi menjadi 2 bagian, bagian kiri untuk form user dan bagian kanan untuk terminal UI. Tampilan harus clean, modern, rapi, user friendly, dan menarik.
+1. Single page dibagi menjadi 2 bagian, bagian kiri untuk form user dan bagian kanan untuk terminal UI. Tampilan dibangun menggunakan Material UI (MUI) agar clean, modern, rapi, user friendly, dan menarik.
 2. Bagian kiri dibuat sebagai sidebar. Logo aplikasi menyatu dibagian atas, dibagian bawahnya form user.
 3. Bagian kanan dibagi menjadi 2 bagian, bagian atas mempilkan terminal UI, bagian bawah untuk menampilan hasil video clipping.
    	**Bagian Terminal UI 1:**
@@ -103,7 +103,7 @@ Sistem ini menggunakan arsitektur Hybrid-Container. Antarmuka pengguna (Electron
 ├── ARCHITECTURE.md           # Peta arsitektur sistem
 ├── .gitignore
 │
-├── /frontend                 # ELECRON + REACT + TYPESCRIPT
+├── /frontend                 # ELECTRON + REACT + TYPESCRIPT + MUI
 │   ├── /src
 │   │   ├── /components       # Komponen UI (Tombol, Progress Bar)
 │   │   ├── /services         # Fungsi pemanggil API ke localhost:8000
