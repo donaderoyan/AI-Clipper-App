@@ -292,17 +292,16 @@ def _detect_prominent_region(frame: np.ndarray, frame_area: int) -> Optional[Tup
 
 def _smooth_trajectory(
     points: List[Tuple[int, int, int]],
-    window_size: int = 5,  # Gunakan window sedikit lebih besar untuk median filter
+    window_size: int = 15,  # Dinaikkan ke 15 (setengah detik) untuk kestabilan ekstra
 ) -> List[Tuple[int, int, int]]:
-    if len(points) <= window_size:
+    if len(points) <= 1:
         return points
 
-    # Tahap 1: Median filter untuk menghilangkan noise deteksi 1 frame 
-    # namun tetap mempertahankan transisi perpindahan muka (snap to face) yang cepat
+    # Tahap 1: Median filter untuk menghilangkan noise deteksi 
     median_points = []
     for i in range(len(points)):
-        start_idx = max(0, i - window_size // 2)
-        end_idx = min(len(points), i + window_size // 2 + 1)
+        start_idx = max(0, i - 5)
+        end_idx = min(len(points), i + 6)
         window = points[start_idx:end_idx]
         frame_idx = points[i][0]
         
@@ -312,18 +311,27 @@ def _smooth_trajectory(
         med_y = sorted_y[len(sorted_y) // 2]
         median_points.append((frame_idx, med_x, med_y))
 
-    # Tahap 2: Light smoothing (Moving Average dengan window kecil 3)
-    # untuk memperhalus pergerakan minor
+    # Tahap 2: EMA dengan Snap (Smart Panning)
     smoothed = []
-    for i in range(len(median_points)):
-        start_idx = max(0, i - 1)
-        end_idx = min(len(median_points), i + 2)
-        window = median_points[start_idx:end_idx]
-        frame_idx = median_points[i][0]
+    ema_x = float(median_points[0][1])
+    ema_y = float(median_points[0][2])
+    
+    # Faktor kehalusan: semakin kecil semakin halus bergeraknya saat mengikuti orang berjalan
+    alpha = 0.1 
+    
+    for frame_idx, mx, my in median_points:
+        dist = ((mx - ema_x)**2 + (my - ema_y)**2)**0.5
         
-        avg_x = int(sum(p[1] for p in window) / len(window))
-        avg_y = int(sum(p[2] for p in window) / len(window))
-        smoothed.append((frame_idx, avg_x, avg_y))
+        if dist > 150.0:
+            # Jarak sangat jauh (ganti pembicara), SNAP seketika tanpa smoothing!
+            ema_x = float(mx)
+            ema_y = float(my)
+        else:
+            # Jarak dekat (orang bergerak pelan), ikuti dengan mulus
+            ema_x = ema_x + alpha * (mx - ema_x)
+            ema_y = ema_y + alpha * (my - ema_y)
+            
+        smoothed.append((frame_idx, int(ema_x), int(ema_y)))
 
     return smoothed
 
@@ -410,57 +418,34 @@ def _detect_mouth_activity(
     mouth_cascade,
 ) -> float:
     """
-    Deteksi aktivitas mulut dalam face ROI.
-    Returns confidence score (0.0 - 2.0) berdasarkan mouth detection dan size.
+    Deteksi aktivitas mulut menggunakan Net Optical Flow (Mouth Flow - Head Flow).
     """
     fx, fy, fw, fh = face_box
-    h_frame, w_frame = curr_gray.shape[:2]
-
-    # Mouth biasanya berada di 50-85% dari tinggi wajah
-    mouth_y_start = max(0, fy + int(fh * 0.5))
-    mouth_y_end = min(h_frame, fy + int(fh * 0.85))
-    mouth_x_start = max(0, fx)
-    mouth_x_end = min(w_frame, fx + fw)
-
-    # Crop from curr_gray for cascade detection with bounds checking
-    if mouth_y_end <= mouth_y_start or mouth_x_end <= mouth_x_start:
-        return 0.4  # ROI too small, return low confidence
     
-    mouth_roi = curr_gray[mouth_y_start:mouth_y_end, mouth_x_start:mouth_x_end]
+    if prev_gray is None:
+        return 0.0
 
-    # If mouth cascade is not available or ROI is empty, fallback to optical flow
-    try:
-        mouths = []
-        if mouth_cascade is not None and not getattr(mouth_cascade, 'empty', lambda: False)():
-            mouths = mouth_cascade.detectMultiScale(
-                mouth_roi,
-                scaleFactor=1.1,
-                minNeighbors=4,
-                minSize=(15, 10),
-                maxSize=(int(fw * 0.6), int(fh * 0.3)),
-            )
+    # Area bawah wajah (mulut)
+    mouth_y_start = max(0, fy + int(fh * 0.55))
+    mouth_y_end = min(curr_gray.shape[0], fy + int(fh * 0.95))
+    mouth_x_start = max(0, fx + int(fw * 0.15))
+    mouth_x_end = min(curr_gray.shape[1], fx + int(fw * 0.85))
 
-        if len(mouths) > 0:
-            # Deteksi multiple mouths bisa berarti mulut terbuka (aktivitas)
-            mouth_activity = min(2.0, len(mouths) * 0.8)
-            mouth_areas = [mw * mh for (_, _, mw, mh) in mouths]
-            max_mouth_area = max(mouth_areas)
-            area_confidence = min(2.0, (max_mouth_area / (fw * fh * 0.1)) * 0.5)
-            mouth_activity = max(mouth_activity, area_confidence)
-            return mouth_activity
-    except Exception:
-        # If cascade fails for some reason, continue to optical-flow fallback
-        mouths = []
-
-    # Optical flow fallback: measure motion in mouth ROI between prev and curr frames
-    if prev_gray is not None:
-        roi = (mouth_x_start, mouth_y_start, mouth_x_end - mouth_x_start, max(1, mouth_y_end - mouth_y_start))
-        flow_mag = _calculate_optical_flow_magnitude(prev_gray, curr_gray, roi)
-        # scale to mouth score range (0.0 - 2.0)
-        return min(2.0, flow_mag * 2.0 + 0.3)
-
-    # No prev frame and no mouth detections: low confidence
-    return 0.4
+    mouth_roi = (mouth_x_start, mouth_y_start, mouth_x_end - mouth_x_start, max(1, mouth_y_end - mouth_y_start))
+    
+    # Area atas wajah (mata/dahi) untuk mengukur pergerakan kepala secara umum
+    upper_roi = (fx, fy, fw, max(1, int(fh * 0.4)))
+    
+    flow_mouth = _calculate_optical_flow_magnitude(prev_gray, curr_gray, mouth_roi)
+    flow_head = _calculate_optical_flow_magnitude(prev_gray, curr_gray, upper_roi)
+    
+    # Net Mouth Flow: Gerakan mulut dikurangi gerakan kepala
+    # Jika orang bicara tanpa menggeleng, flow_mouth tinggi, flow_head rendah.
+    # Jika orang cuma mengangguk (diam), flow_mouth dan flow_head sama-sama tinggi -> selisihnya 0.
+    net_mouth_flow = max(0.0, flow_mouth - flow_head)
+    
+    # Skalakan hasilnya agar berada di rentang 0.0 - 2.0
+    return min(2.0, net_mouth_flow * 3.0)
 
 
 def _calculate_optical_flow_magnitude(
@@ -560,19 +545,15 @@ def _detect_speaker_face(
         if prev_frame is not None:
             flow_score = _calculate_optical_flow_magnitude(prev_frame, frame, (fx, fy, fw, fh)) * 1.5
         
-        # IMPROVED SCORING: Aktivitas mulut dan pergerakan adalah indikator UTAMA berbicara.
-        # Eye_score hanya memastikan bahwa ini adalah wajah yang valid.
-        valid_face_multiplier = 1.0 if eye_score >= 1.5 else 0.5
+        # IMPROVED SCORING: Net Mouth Flow adalah indikator UTAMA berbicara.
+        speaking_score = (mouth_score * 3.0) + (flow_score * 0.5)
         
-        # Bobot besar untuk aktivitas mulut dan optik (indikasi bicara)
-        speaking_score = (mouth_score * 2.5) + (flow_score * 1.5)
-        
-        total_score = (speaking_score * valid_face_multiplier) + (eye_score * 1.0)
+        total_score = speaking_score + (eye_score * 0.2)
             
-        # Hysteresis (stickiness) bonus dikurangi agar transisi lebih cepat
-        # ketika pembicara baru mulai bicara.
+        # Hysteresis (stickiness) bonus dikembalikan ke 2.0 agar sangat stabil
+        # Fokus hanya akan pindah jika orang lain benar-benar bicara (mouth_score membesar)
         if face_id == active_speaker_id:
-            total_score += 0.5  # Bonus kecil agar tidak flickering, tapi mudah direbut
+            total_score += 2.0
         
         face_scores.append((total_score, face_id, focus_x, focus_y))
     
@@ -621,6 +602,8 @@ def _analyze_frames_with_speaker_detection(
     face_tracker = FaceTracker()
     prev_frame_gray = None
     active_speaker_id = -1
+    last_valid_focus_x = None
+    last_valid_focus_y = None
 
     while current_frame < end_frame:
         ret, frame = capture.read()
@@ -724,10 +707,20 @@ def _analyze_frames_with_speaker_detection(
                         best_confidence = confidence
 
         if best_confidence == 0.0:
-            object_center = _detect_prominent_region(frame, frame_area)
-            if object_center is not None:
-                best_focus_x, best_focus_y = object_center
-                best_confidence = 0.75
+            if last_valid_focus_x is not None:
+                # Pertahankan posisi wajah terakhir jika cascade sesaat kehilangan wajah
+                best_focus_x = last_valid_focus_x
+                best_focus_y = last_valid_focus_y
+                best_confidence = 0.5
+            else:
+                object_center = _detect_prominent_region(frame, frame_area)
+                if object_center is not None:
+                    best_focus_x, best_focus_y = object_center
+                    best_confidence = 0.75
+        else:
+            # Simpan posisi wajah yang valid
+            last_valid_focus_x = best_focus_x
+            last_valid_focus_y = best_focus_y
 
         focus_points.append((current_frame - start_frame, best_focus_x, best_focus_y))
         prev_frame_gray = gray.copy()
