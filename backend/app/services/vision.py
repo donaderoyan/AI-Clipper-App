@@ -487,6 +487,8 @@ def _detect_speaker_face(
     eye_cascade,
     mouth_cascade,
     active_speaker_id: int = -1,
+    last_valid_focus_x: Optional[int] = None,
+    last_valid_focus_y: Optional[int] = None,
 ) -> Tuple[Optional[Tuple[int, int]], float, int]:
     """
     Deteksi face yang sedang berbicara (speaker) berdasarkan:
@@ -548,12 +550,26 @@ def _detect_speaker_face(
         # IMPROVED SCORING: Net Mouth Flow adalah indikator UTAMA berbicara.
         speaking_score = (mouth_score * 3.0) + (flow_score * 0.5)
         
-        total_score = speaking_score + (eye_score * 0.2)
+        # HUKUMAN UNTUK OBJEK DIAM (DINDING): Haar cascade sering salah deteksi dinding sebagai wajah.
+        # Wajah asli manusia (meski diam) selalu memiliki mikromotion (nafas, kedip, dll) > 0.05.
+        # Dinding/poster benar-benar diam = 0.0.
+        static_penalty = 0.0
+        if flow_score < 0.05 and mouth_score < 0.05:
+            static_penalty = 2.0  # Hukuman berat agar kamera tidak mengunci dinding!
             
-        # Hysteresis (stickiness) bonus dikembalikan ke 2.0 agar sangat stabil
-        # Fokus hanya akan pindah jika orang lain benar-benar bicara (mouth_score membesar)
-        if face_id == active_speaker_id:
-            total_score += 2.0
+        total_score = speaking_score + (eye_score * 0.2) - static_penalty
+            
+        # SPATIAL HYSTERESIS (Kestabilan Kunci Kamera)
+        # Jangan bergantung pada `face_id` tracker karena cascade sering berkedip dan mengganti ID.
+        # Bergantunglah pada posisi fisik wajah.
+        is_active = False
+        if last_valid_focus_x is not None:
+            dist_to_last = ((focus_x - last_valid_focus_x)**2 + (focus_y - last_valid_focus_y)**2)**0.5
+            if dist_to_last < 150.0:  # Jika objek ini ada di tempat orang yang terakhir kita sorot
+                is_active = True
+                
+        if is_active:
+            total_score += 2.5  # Bonus loyalitas yang sangat besar!
         
         face_scores.append((total_score, face_id, focus_x, focus_y))
     
@@ -665,7 +681,9 @@ def _analyze_frames_with_speaker_detection(
             speaker_focus, speaker_score, current_speaker_id = _detect_speaker_face(
                 frame, prev_frame_gray, faces_with_ids,
                 face_cascade, eye_cascade, mouth_cascade,
-                active_speaker_id=active_speaker_id
+                active_speaker_id=active_speaker_id,
+                last_valid_focus_x=last_valid_focus_x,
+                last_valid_focus_y=last_valid_focus_y
             )
             
             if current_speaker_id != -1:
