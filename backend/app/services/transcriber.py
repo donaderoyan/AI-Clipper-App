@@ -42,7 +42,7 @@ def transcribe_video(video_path: Path, work_dir: Path) -> Tuple[str, Path, List[
     audio_path = work_dir / "audio.wav"
     extract_audio(video_path, audio_path)
 
-    segments_gen, _info = MODEL.transcribe(str(audio_path), beam_size=5)
+    segments_gen, _info = MODEL.transcribe(str(audio_path), beam_size=1)
     segments = list(segments_gen)
     transcript_text = "\n".join(segment.text.strip() for segment in segments if segment.text.strip())
 

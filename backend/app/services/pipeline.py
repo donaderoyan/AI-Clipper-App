@@ -1,5 +1,6 @@
 import traceback
 import json
+import concurrent.futures
 from pathlib import Path
 from typing import List, Dict
 
@@ -125,10 +126,11 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
                 unique_clips.append(clip)
 
         output_files = []
-        clips_metadata = []  # Store metadata for each clip
         
         total_clips = len(unique_clips)
-        for i, clip in enumerate(unique_clips):
+        clips_metadata_dict = {}  # Store metadata for each clip by index
+        
+        def process_clip(i: int, clip: Dict[str, object]) -> Dict[str, object]:
             label = clip.get('label', f'clip_{i}')
             start_val = int(clip['start'])
             end_val = int(clip['end'])
@@ -152,11 +154,6 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
             output_path = output_dir / output_filename
             output_srt_path = output_path.with_suffix(".srt")
 
-            prog = 80 + int((i / total_clips) * 10)
-            start_fmt = format_time(float(clip["start"]))
-            end_fmt = format_time(float(clip["end"]))
-            update_job_status(job_id, JobState.running, f"Merender klip {start_fmt} hingga {end_fmt}...", step=f"render_{i}", progress=prog)
-            
             generate_clip_srt(segments, float(clip["start"]), float(clip["end"]), output_srt_path)
             
             render_clip(
@@ -166,9 +163,6 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
                 end=float(clip["end"]),
                 crop_params=crop_params,
             )
-            
-            output_files.append(str(output_path))
-            output_files.append(str(output_srt_path))
             
             topic = clip.get("topic", "Video Clip")
             
@@ -188,18 +182,47 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
             else:
                 summary = clip.get("summary", "")
             
-            clips_metadata.append({
+            return {
                 "index": i,
-                "filename": output_filename,
-                "video_path": str(output_path),
-                "srt_path": str(output_srt_path),
-                "topic": topic,
-                "summary": summary,
-                "duration": dur_val,
-                "start": start_val,
-                "end": end_val,
-                "aspect_ratio": request_data.aspect_ratio
-            })
+                "output_path": str(output_path),
+                "output_srt_path": str(output_srt_path),
+                "metadata": {
+                    "index": i,
+                    "filename": output_filename,
+                    "video_path": str(output_path),
+                    "srt_path": str(output_srt_path),
+                    "topic": topic,
+                    "summary": summary,
+                    "duration": dur_val,
+                    "start": start_val,
+                    "end": end_val,
+                    "aspect_ratio": request_data.aspect_ratio
+                }
+            }
+
+        update_job_status(job_id, JobState.running, f"Memulai render paralel untuk {total_clips} klip...", step="render", progress=80)
+        
+        completed_clips = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, total_clips)) as executor:
+            future_to_index = {executor.submit(process_clip, i, clip): i for i, clip in enumerate(unique_clips)}
+            
+            for future in concurrent.futures.as_completed(future_to_index):
+                i = future_to_index[future]
+                try:
+                    res = future.result()
+                    output_files.append(res["output_path"])
+                    output_files.append(res["output_srt_path"])
+                    clips_metadata_dict[i] = res["metadata"]
+                    
+                    completed_clips += 1
+                    prog = 80 + int((completed_clips / total_clips) * 15)
+                    update_job_status(job_id, JobState.running, f"Merender klip ({completed_clips}/{total_clips})...", step="render", progress=prog, in_place=True)
+                except Exception as exc:
+                    print(f"Peringatan: Gagal merender klip {i}: {exc}")
+                    traceback.print_exc()
+
+        # Sort metadata back to original order
+        clips_metadata = [clips_metadata_dict[i] for i in sorted(clips_metadata_dict.keys())]
 
         # Save metadata to JSON file
         metadata_filename = f"clips_metadata_{job_id}.json"

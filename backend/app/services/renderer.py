@@ -35,7 +35,7 @@ def render_clip(
         str(output_path),
         vcodec="libx264",
         acodec="aac",
-        preset="fast",
+        preset="superfast",
         crf=23,
         movflags="+faststart",
     ).overwrite_output()

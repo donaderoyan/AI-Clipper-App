@@ -632,28 +632,36 @@ def _analyze_frames_with_speaker_detection(
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
+        # Downscale for faster detection
+        scale_factor = 640.0 / frame_width if frame_width > 640 else 1.0
+        if scale_factor < 1.0:
+            small_gray = cv2.resize(gray, (0, 0), fx=scale_factor, fy=scale_factor)
+        else:
+            small_gray = gray
+        
         # 1. Frontal faces
         faces_frontal = face_cascade.detectMultiScale(
-            gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE
+            small_gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE
         )
         faces_frontal = list(faces_frontal) if len(faces_frontal) > 0 else []
 
         # 2. Profile faces (Left facing)
         faces_profile_left = profile_cascade.detectMultiScale(
-            gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE
+            small_gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE
         )
         faces_profile_left = list(faces_profile_left) if len(faces_profile_left) > 0 else []
 
         # 3. Profile faces (Right facing - require horizontal flip)
-        gray_flipped = cv2.flip(gray, 1)
+        gray_flipped = cv2.flip(small_gray, 1)
         faces_profile_right_flipped = profile_cascade.detectMultiScale(
             gray_flipped, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE
         )
         faces_profile_right = []
         if len(faces_profile_right_flipped) > 0:
+            small_width = small_gray.shape[1]
             for (x, y, w, h) in faces_profile_right_flipped:
                 # Flip bounding box back to original coordinates
-                orig_x = frame_width - (x + w)
+                orig_x = small_width - (x + w)
                 faces_profile_right.append((orig_x, y, w, h))
         
         # Combine all detections
@@ -667,7 +675,12 @@ def _analyze_frames_with_speaker_detection(
             # Add duplicates to ensure groupRectangles keeps them (it requires weights/neighbors)
             rects = rects + rects 
             faces_grouped, _ = cv2.groupRectangles(rects, 1, 0.2)
-            faces = list(faces_grouped)
+            
+            # Upscale coordinates back to original size
+            if scale_factor < 1.0:
+                faces = [(int(x / scale_factor), int(y / scale_factor), int(w / scale_factor), int(h / scale_factor)) for x, y, w, h in faces_grouped]
+            else:
+                faces = list(faces_grouped)
 
         best_focus_x = frame_width // 2
         best_focus_y = frame_height // 2
