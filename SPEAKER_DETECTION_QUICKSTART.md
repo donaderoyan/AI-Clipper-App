@@ -8,25 +8,27 @@ Sistem vision panning sekarang bisa **mendeteksi dan mengikuti orang yang sedang
 
 ## ✨ Fitur Baru
 
-### 1. **Multi-Speaker Detection**
-- Sistem sekarang menganalisis **mouth activity** (pergerakan bibir) setiap orang
-- Fokus ke orang yang sedang berbicara, bukan orang pertama yang terdeteksi
+### 1. **Net Optical Flow (Deteksi Bicara Akurat)**
+- Sistem menghitung selisih antara **pergerakan bibir** dan **pergerakan kepala**.
+- Mengabaikan anggukan kepala, secara spesifik mendeteksi mulut yang berbicara terbuka/tertutup.
 
-### 2. **Mouth Activity Scoring** 
-- Deteksi mulut dengan Haar Cascade
-- Hitung confidence dari pergerakan bibir
+### 2. **Multi-Speaker & Profile Detection** 
+- Deteksi wajah lurus (frontal) dan menyamping (kiri/kanan) secara simultan.
+- Otomatis berpindah (*Cut*) ke orang yang aktif berbicara.
 
-### 3. **Optical Flow Motion Detection**
-- Analisis pergerakan dalam face region
-- Tambahan indicator untuk mendeteksi aktivitas berbicara
+### 3. **Spatial Hysteresis & Static Penalty**
+- **Static Penalty**: Dinding, poster, atau benda mati tidak akan pernah bisa mengecoh kamera.
+- **Spatial Hysteresis**: Kamera mengunci secara fisik berdasarkan koordinat, tidak akan melompat karena AI sesaat berkedip/gagal.
 
-### 4. **Face Tracking**
-- Setiap face mendapat unique ID
-- Trackan posisi across frames untuk temporal consistency
+### 4. **Smart EMA Tracking & FFmpeg Keyframe Protection**
+- Pergerakan orang berjalan diikuti dengan sangat mulus (EMA).
+- Perpindahan pembicara dijamin memicu perpindahan kamera **0 detik (Instan)** tanpa melayang di tengah layar berkat sistem kekebalan keyframe.
 
 ### 5. **Speaker Priority Algorithm**
 ```
-Total Score = (Eye Detection × 0.4) + (Mouth Activity × 0.4) + (Motion × 0.2)
+Net Mouth Flow = Pergerakan Mulut - Pergerakan Kepala
+Speaking Score = (Net Mouth Flow × 3.0) + (Face Motion × 0.5)
+Total Score = Speaking Score + (Eye Detection × 0.2) - (Static Penalty) + (Spatial Hysteresis × 2.5)
 └─ Face dengan score tertinggi dipilih sebagai speaker
 ```
 

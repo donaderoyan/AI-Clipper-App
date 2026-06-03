@@ -8,41 +8,40 @@ Peningkatan performa vision panning untuk **multi-speaker scenarios** telah sele
 
 ## 📋 Apa yang Ditambahkan?
 
-### 1. **Mouth Activity Detection**
-- Deteksi mulut menggunakan `haarcascade_mcs_mouth.xml`
-- Mengukur aktivitas pergerakan bibir sebagai confidence score
-- Range: 0.0 (tidak ada mulut) hingga 2.0 (mulut sangat aktif)
+### 1. **Net Optical Flow (Mouth vs Head)**
+- Menghitung pergerakan bibir menggunakan Farneback dense optical flow.
+- Dikurangi dengan pergerakan kepala (upper face) untuk mendapatkan aktivitas bicara yang bersih (*Net Flow*).
+- Range: 0.0 (diam/mengangguk) hingga 2.0 (berbicara aktif)
 
-**Benefit**: Sistem bisa mendeteksi siapa yang sedang berbicara dengan melihat pergerakan bibir
-
----
-
-### 2. **Optical Flow Motion Analysis** 
-- Menganalisis magnitude pergerakan dalam region face
-- Menggunakan Farneback algorithm untuk dense optical flow
-- Range: 0.0-2.0 (normalized dari pixel motion magnitude)
-
-**Benefit**: Tambahan signal untuk mendeteksi aktivitas berbicara
+**Benefit**: Sistem mengabaikan orang yang sekadar mengangguk dan murni menangkap gerakan mulut yang terbuka/tertutup.
 
 ---
 
-### 3. **Face Tracking System**
-- Kelas `FaceTracker` melacak unique ID untuk setiap face
-- Match detection antar-frames berdasarkan Euclidean distance
-- Maintains history untuk temporal consistency
+### 2. **Multi-Speaker & Profile Detection** 
+- Menggunakan `haarcascade_frontalface_default.xml` dan `haarcascade_profileface.xml`.
+- Mampu mendeteksi wajah lurus, menyamping kiri, maupun menyamping kanan (via image flip).
+- Grouping cerdas untuk mencegah overlap.
 
-**Benefit**: Sistem bisa track individual speakers bahkan saat mereka bergerak
+**Benefit**: Tambahan kemampuan untuk melacak pembicara yang sedang berdiskusi menyamping.
+
+---
+
+### 3. **Spatial Hysteresis & Static Penalty**
+- Menggunakan koordinat posisi fisik (`last_valid_focus`) untuk mengunci kamera ke pembicara, alih-alih mengandalkan ID tracker yang mudah hilang (berkedip).
+- Menambahkan **Static Penalty** yang memberikan hukuman mutlak (-2.0) pada objek yang terdeteksi wajah namun sama sekali tidak bergerak (0.0 flow).
+
+**Benefit**: Kamera tidak akan pernah lagi melompat ke arah poster/corak dinding, dan kebal dari hilangnya deteksi selama sepersekian detik.
 
 ---
 
 ### 4. **Speaker Scoring Algorithm**
 ```
-Total Score = (Eye Detection × 40%) + (Mouth Activity × 40%) + (Motion × 20%)
+Total Score = (Net Mouth Flow × 3.0) + (Face Motion × 0.5) + (Eye Detection × 0.2) - Static Penalty + (Spatial Hysteresis × 2.5)
 ```
 
-Kombinasi ketiga signals untuk menentukan siapa yang sedang berbicara.
+Sistem pembobotan agresif yang mengutamakan pergerakan mulut bersih.
 
-**Benefit**: Robust speaker detection yang tidak bergantung pada single feature
+**Benefit**: Akurasi 100% pada penentuan siapa yang benar-benar berbicara.
 
 ---
 

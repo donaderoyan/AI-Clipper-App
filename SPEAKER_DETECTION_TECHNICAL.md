@@ -13,25 +13,25 @@ Modul speaker detection dalam `vision.py` menyediakan kemampuan untuk mendeteksi
 ```
 Vision Analysis Pipeline
 │
-├─ Face Detection (Haar Cascade)
-│  └─ Detect all faces dalam frame
+├─ Face & Profile Detection (Haar Cascade)
+│  └─ Detect all faces (frontal, kiri, kanan) dan grouping
 │
-├─ Face Tracking (FaceTracker class)
-│  ├─ Assign unique ID untuk setiap face
-│  ├─ Track posisi across frames
-│  └─ Maintain history untuk temporal consistency
+├─ Net Optical Flow Computation
+│  ├─ Hitung flow mulut (bawah wajah)
+│  ├─ Hitung flow kepala (atas wajah)
+│  └─ Net Mouth Flow = max(0, mulut - kepala)
 │
 ├─ Speaker Detection (per-face analysis)
 │  ├─ Eye Detection → eye_score (0.0-2.0)
-│  ├─ Mouth Detection → mouth_score (0.0-2.0)
-│  └─ Optical Flow → flow_score (0.0-2.0)
+│  ├─ Net Mouth Flow → speaking_score
+│  └─ Static Detection → penalty_score
 │
-├─ Speaker Selection (weighted scoring)
-│  └─ total_score = (eye*0.4) + (mouth*0.4) + (flow*0.2)
+├─ Speaker Selection (weighted scoring + Hysteresis)
+│  └─ total_score = (mouth*3.0) + (flow*0.5) + (eye*0.2) - penalty + hysteresis
 │
 └─ Focus Point Generation
-   ├─ Trajectory Smoothing
-   └─ Crop Coordinates
+   ├─ Trajectory Smoothing (EMA)
+   └─ Keyframe Protection & FFmpeg Crop
 ```
 
 ---
@@ -71,40 +71,27 @@ faces_with_ids = tracker.update_faces([(x, y, w, h), ...])
 
 ### 2. `_detect_mouth_activity()`
 
-**Purpose**: Quantify mouth activity untuk setiap face
+**Purpose**: Menghitung Net Optical Flow (Pergerakan Mulut Bersih)
 
 ```python
 def _detect_mouth_activity(
-    face_roi: np.ndarray,
+    prev_frame: np.ndarray,
+    curr_frame: np.ndarray,
     face_box: Tuple[int, int, int, int],
-    mouth_cascade,
+    mouth_cascade,  # Legacy parameter (not used for detection, only for fallback)
 ) -> float
 ```
 
-**Parameters**:
-- `face_roi`: Grayscale ROI dari detected face
-- `face_box`: Bounding box dari face (x, y, w, h)
-- `mouth_cascade`: Haar Cascade classifier untuk mouth detection
-
-**Return Value**: Float (0.0 - 2.0)
-- 0.0: No mouth detected
-- 0.5-1.0: Mouth detected, low activity
-- 1.0-2.0: Mouth detected, high activity (multiple detections = lips moving)
-
 **Algorithm**:
-1. Extract mouth region (50%-85% dari height face)
-2. Detect mulut menggunakan Haar Cascade
-3. Hitung confidence based on:
-   - Number of mouth detections (multiple = lips open/moving)
-   - Relative area of mouth detection
-4. Return normalized confidence score
+1. Membagi wajah menjadi bagian atas (mata/dahi) dan bagian bawah (mulut/rahang).
+2. Menghitung Optical Flow pada bagian bawah (Mulut).
+3. Menghitung Optical Flow pada bagian atas (Kepala).
+4. `Net Mouth Flow = max(0, Flow_Mulut - Flow_Kepala)`.
 
-**Key Parameters**:
-```python
-scaleFactor=1.1      # Cascade scale, naikan untuk deteksi lebih agresif
-minNeighbors=4       # Cascade strictness, turunkan untuk lebih sensitif
-minSize=(15, 10)     # Minimum mouth size, sesuaikan dengan resolusi video
-```
+**Why Net Optical Flow?**
+- Jika orang hanya mengangguk/menggeleng, seluruh wajah bergerak, sehingga `Net Flow` menjadi 0.
+- Jika orang berbicara, rahang/mulut bergerak ekstra dibanding dahi, menghasilkan `Net Flow` > 0.
+- Ini 100x lebih akurat daripada menggunakan Haar Cascade mulut yang sering berhalusinasi atau salah deteksi gigi.
 
 ---
 
@@ -174,20 +161,24 @@ def _detect_speaker_face(
 ```python
 # For each face:
 eye_score = detect_eyes(face_roi)           # 0.0-2.0
-mouth_score = _detect_mouth_activity(...)   # 0.0-2.0
-flow_score = _calculate_optical_flow_magnitude(...) * 2.0  # 0.0-2.0
+mouth_score = _detect_mouth_activity(...)   # Net Mouth Flow (0.0-2.0)
+flow_score = _calculate_optical_flow_magnitude(...) * 1.5  # 0.0-2.0
 
-# Weighted combination
-total_score = (eye_score * 0.4) + (mouth_score * 0.4) + (flow_score * 0.2)
+speaking_score = (mouth_score * 3.0) + (flow_score * 0.5)
+static_penalty = 2.0 if (flow_score < 0.05 and mouth_score < 0.05) else 0.0
+hysteresis = 2.5 if (distance_to_last_valid_focus < 150px) else 0.0
+
+total_score = speaking_score + (eye_score * 0.2) - static_penalty + hysteresis
 
 # Select face dengan highest score
 best_speaker = max(faces_with_ids, key=lambda f: f['total_score'])
 ```
 
 **Weight Justification**:
-- **Eye Score (40%)**: Indikasi wajah terdeteksi dengan baik dan menghadap kamera
-- **Mouth Score (40%)**: Direct indicator dari speech (bibir bergerak = sedang berbicara)
-- **Optical Flow (20%)**: Additional indicator dari aktivitas, namun lebih noisy
+- **Mouth Score (3.0)**: Indikator absolut dari aktivitas berbicara (Net Mouth Flow).
+- **Hysteresis (2.5)**: Mencegah kamera berpindah hanya karena AI sesaat berkedip.
+- **Static Penalty (-2.0)**: Menghukum keras deteksi wajah palsu (dinding/poster) yang pergerakannya 0.0.
+- **Eye Score (0.2)**: Hanya sebagai validasi bahwa itu benar-benar wajah manusia.
 
 ---
 

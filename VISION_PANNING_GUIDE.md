@@ -16,43 +16,42 @@ Smart panning dalam `vision.py` kini menghasilkan path crop dinamis untuk setiap
 
 ## 🔄 Alur Kerja
 
-### 1. **Face Detection & Tracking** (Haar Cascade + Face Tracker)
+### 1. **Face & Profile Detection** (Haar Cascade)
 ```
-Video Frame → Grayscale → haarcascade_frontalface_default.xml
-            → FaceTracker (Track ID untuk setiap face sepanjang video)
+Video Frame → Grayscale 
+            → haarcascade_frontalface_default.xml (Wajah Lurus)
+            → haarcascade_profileface.xml (Menyamping Kiri & Kanan)
+            → cv2.groupRectangles (Mencegah deteksi ganda)
 ```
-Mendeteksi wajah dalam frame dan melacak identitas face antar-frame.
+Mendeteksi seluruh wajah (baik menghadap kamera maupun menyamping) dalam satu frame.
 
-### 2. **Eye Detection** (Prioritas Tinggi)
+### 2. **Eye Detection** (Validasi Tambahan)
 ```
 Face ROI → haarcascade_eye.xml → Detect Eyes
 ```
-Jika mata terdeteksi dalam wajah, gunakan posisi mata sebagai focus point.
+Digunakan hanya sebagai bonus skor (membantu membedakan wajah dari corak dinding).
 
-### 3. **Mouth Activity Detection** (Baru - Speaker Detection)
+### 3. **Net Optical Flow** (Deteksi Bicara Akurat)
 ```
-Face ROI → haarcascade_mcs_mouth.xml → Deteksi Mulut → Activity Score
+Prev Frame vs Current Frame 
+   → Flow Mulut (Pergerakan Bibir)
+   → Flow Kepala (Pergerakan Dahi/Mata)
+   → Net Mouth Flow = max(0, Flow Mulut - Flow Kepala)
 ```
-Mendeteksi mulut dan mengukur aktivitas (pergerakan bibir) sebagai indikator speaker.
+Menyaring pergerakan mengangguk/menggeleng, dan secara presisi menangkap aktivitas rahang/bibir yang terbuka-tertutup.
 
-### 4. **Optical Flow Analysis** (Baru - Motion Detection)
-```
-Prev Frame vs Current Frame → Calculate Optical Flow
-                            → Average Magnitude dalam Face ROI
-                            → Motion Score
-```
-Menganalisis pergerakan dalam ROI wajah untuk mendeteksi aktivitas berbicara.
-
-### 5. **Speaker Scoring** (Baru - Multi-Speaker Selection)
+### 4. **Speaker Scoring & Spatial Hysteresis**
 ```
 Priority Weighting:
-├─ Eye Detection Confidence        → 40% weight (deteksi wajah berkualitas)
-├─ Mouth Activity Score            → 40% weight (indikasi sedang berbicara)
-└─ Optical Flow Magnitude          → 20% weight (pergerakan/aktivitas)
+├─ Net Mouth Flow        → 3.0 weight (Indikator UTAMA Berbicara)
+├─ Face Motion           → 0.5 weight (Indikator aktivitas)
+├─ Eye Detection         → 0.2 weight (Validasi wajah)
+├─ Static Penalty        → -2.0 (Menghukum objek mati/dinding)
+└─ Spatial Hysteresis    → +2.5 (Menahan fokus kamera di lokasi yang sama)
 
-Total Score = (eye_score * 0.4) + (mouth_score * 0.4) + (flow_score * 0.2)
+Total Score = Speaking_Score + Eye_Score - Penalty + Hysteresis
 ```
-Menghitung total speaker score untuk setiap face. Face dengan score tertinggi dipilih sebagai speaker.
+Face dengan score tertinggi dipilih sebagai pembicara aktif.
 
 ### 6. **Confidence Scoring**
 ```
@@ -98,36 +97,34 @@ Menghasilkan path dinamis untuk panning sepanjang clip.
 
 ### Input Analysis Per-Face:
 
-1. **Eye Confidence Score** (0.5-2.0)
-   - 2.0: Kedua mata terdeteksi (fokus optimal)
-   - 1.5: Satu mata terdeteksi (fokus baik)
-   - 0.5: Tidak ada mata terdeteksi (fallback)
+1. **Net Mouth Flow** (0.0-2.0)
+   - Selisih gerak mulut dan gerak kepala.
+   - 0.0: Mulut tertutup rapat atau mengangguk.
+   - 2.0: Mulut terbuka lebar dan berbicara aktif.
 
-2. **Mouth Activity Score** (0.0-2.0)
-   - 0.0: Tidak ada mulut terdeteksi
-   - 0.5-1.0: Mulut terdeteksi, aktivitas rendah
-   - 1.0-2.0: Mulut terdeteksi, aktivitas tinggi (bibir bergerak)
+2. **Static Penalty** (-2.0 atau 0.0)
+   - Menangkal *False Positive* Haar Cascade (wajah palsu di dinding/poster).
+   - Objek dengan pergerakan murni `0.0` akan dihukum berat dan diabaikan.
 
-3. **Optical Flow Score** (0.0-2.0)
-   - Magnitude rata-rata pergerakan dalam face ROI
-   - 0.0: Tidak ada pergerakan (tidak berbicara)
-   - 1.0-2.0: Pergerakan tinggi (sedang berbicara)
+3. **Spatial Hysteresis** (+2.5 atau 0.0)
+   - Mengingat posisi target terakhir (`last_valid_focus`). 
+   - Jika wajah saat ini berjarak < 150px dari posisi terakhir, kamera mengunci padanya (mencegah kamera mudah berpindah ke orang lain).
 
 ### Speaker Selection Logic:
 
 ```python
 # For each detected face:
-total_score = (eye_score * 0.4) + (mouth_score * 0.4) + (flow_score * 0.2)
+speaking_score = (mouth_score * 3.0) + (flow_score * 0.5)
+total_score = speaking_score + (eye_score * 0.2) - static_penalty + hysteresis_bonus
 
 # Select face dengan highest total_score sebagai speaker
 selected_speaker = max(faces, key=lambda f: f['total_score'])
 ```
 
 **Keuntungan:**
-- ✅ Fokus pada speaker aktif, bukan hanya orang paling dekat
-- ✅ Mengatasi multi-speaker scenarios (lebih dari 1 orang di frame)
-- ✅ Temporal consistency dengan face tracking
-- ✅ Robust terhadap perubahan posisi/sudut kamera
+- ✅ Fokus absolut pada aktivitas bicara (mengabaikan orang yang sekadar bergerak).
+- ✅ Mengalahkan *False Positives* dari background.
+- ✅ *Tracking* fisik yang anti-kedip/anti-amnesia.
 
 ---
 
@@ -218,11 +215,11 @@ mouths = mouth_cascade.detectMultiScale(
 
 ### Dalam `_smooth_trajectory()`
 ```python
-window_size: int = 5  # Ukuran moving average window
+alpha: float = 0.1  # Faktor EMA (Exponential Moving Average)
+snap_threshold = 150.0  # Jarak (pixel) untuk Instant Cut
 ```
-- **Lebih kecil (3)**: Lebih responsif tapi jittery
-- **Standard (5)**: Balanced smoothing
-- **Lebih besar (7-9)**: Lebih smooth tapi less responsive
+- **EMA Tracking**: Mengikuti orang yang bergerak/berjalan dengan mulus tanpa guncangan kamera.
+- **Snap Threshold**: Jika target berpindah jauh secara instan (ganti pembicara), kamera memicu *Cut* 0-detik.
 
 ### Dalam `face_cascade.detectMultiScale()`
 ```python

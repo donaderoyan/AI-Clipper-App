@@ -36,17 +36,17 @@ Pengguna akan melihat pesan di Terminal UI:
 ## Smart Panning (Vision Panning Improvements)
 Backend menggunakan OpenCV untuk menganalisis video dan menghasilkan koordinat crop dinamis yang mengikuti wajah orang yang sedang berbicara (speaker). Fitur ini mencakup:
 
-1. **Multi-Speaker Detection**: Sistem dapat mendeteksi multiple orang dalam satu frame dan secara otomatis fokus ke orang yang sedang berbicara.
+1. **Multi-Speaker & Profile Detection**: Sistem dapat mendeteksi multiple orang dalam satu frame dan secara otomatis fokus ke orang yang sedang berbicara. Dan sistem juga mendeteksi wajah lurus (frontal) maupun menyamping (profil kiri/kanan), dan mengelompokkannya secara cerdas.
 
-2. **Speaker Scoring Algorithm**: 
-   - Prioritas utama: Deteksi mata (indikasi wajah menghadap kamera)
-   - Tiebreaker: Aktivitas mulut (indikasi sedang berbicara)
-   - Fallback: Optical flow motion (pergerakan umum)
+2. **Speaker Scoring Algorithm (Net Optical Flow)**: 
+   - **Prioritas Utama (Net Mouth Flow)**: Menghitung selisih pergerakan bibir dan pergerakan kepala. Orang yang sekadar mengangguk tidak akan dihitung, hanya yang benar-benar berbicara yang mendapat skor tertinggi.
+   - **Static Penalty**: Objek yang sama sekali tidak bergerak (seperti poster/corak dinding) diberi penalti mutlak agar kamera tidak mengunci objek mati.
+   - **Spatial Hysteresis**: Memanfaatkan koordinat spasial (*last_valid_focus*) untuk menjaga agar kamera setia pada pembicara, meskipun AI pendeteksi sesaat gagal (berkedip).
 
-3. **Panning Responsivitas**:
-   - Smoothing window: 3 frames (diperkecil dari 5) untuk respons lebih cepat
-   - Frame sampling: 180 frames (ditingkatkan dari 120) untuk tracking lebih akurat
-   - Hasil: Orang yang berbicara langsung berada di center video dengan minimal lag
+3. **Smart EMA Tracking & Keyframe Protection**:
+   - **EMA (Exponential Moving Average)**: Mengikuti orang yang berjalan dengan sangat mulus.
+   - **Snap Threshold**: Jika target bergerak > 150 pixel dalam waktu singkat (indikasi berganti pembicara), kamera akan melompat seketika (Cut).
+   - **FFmpeg Protection**: Frame kritis saat terjadinya *Snap* dilindungi dari *subsampling*, sehingga FFmpeg melakukan pemotongan transisi 0 detik tanpa melayang-layang di bagian tengah layar.
 
 ## Aturan Penulisan Kode (Coding Conventions)
 - **Penanganan Error:** Selalu berikan blok `try-except` di Python, terutama saat memanggil subproses seperti FFmpeg atau yt-dlp, dan kembalikan status HTTP yang sesuai (400, 500) ke frontend.
