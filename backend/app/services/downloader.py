@@ -104,11 +104,23 @@ def download_video(url: str, raw_dir: Path, progress_callback=None) -> tuple[Pat
 
     # Check if file already exists (cache hit)
     if video_id and ext:
+        # Cek di direktori raw_dir saat ini
         file_path = raw_dir / f"{video_id}.{ext}"
         if file_path.exists():
             if progress_callback:
                 progress_callback("Video sudah diunduh sebelumnya, menggunakan file cache ✓")
             return file_path, True
+            
+        # Cek di direktori job sebelumnya (parent_dir)
+        parent_dir = raw_dir.parent
+        if parent_dir.exists():
+            for job_dir in parent_dir.iterdir():
+                if job_dir.is_dir() and job_dir.name != raw_dir.name:
+                    cached_file = job_dir / f"{video_id}.{ext}"
+                    if cached_file.exists():
+                        if progress_callback:
+                            progress_callback(f"Video ditemukan di job sebelumnya ({job_dir.name}), menggunakan cache ✓")
+                        return cached_file, True
 
     # File not cached, proceed with download
     try:
