@@ -17,7 +17,8 @@ import {
   Chip,
   IconButton,
   Modal,
-  Stack
+  Stack,
+  Tooltip
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CloseIcon from '@mui/icons-material/Close';
@@ -32,6 +33,7 @@ interface ClipResult {
   duration: string;
   videoTitle: string;
   topic: string;
+  summary: string;
   aspectRatio: string;
   start: number;
   end: number;
@@ -58,58 +60,60 @@ function App() {
       try {
         const parsed = JSON.parse(data.trim());
         if (parsed.status === 'success' && parsed.output_files && parsed.output_files.length > 0) {
-           const files: string[] = parsed.output_files;
-           const videos = files.filter(f => f.endsWith('.mp4'));
-           const srts = files.filter(f => f.endsWith('.srt'));
-           const originalTitle = (parsed.video_path || '').split(/[/\\]/).pop()?.replace(/\.[^/.]+$/, "") || 'Video Klip';
-           
-           // Get clips metadata if available
-           const clipsMetadata = parsed.clips_metadata || [];
-           
-           const paired = videos.map((vid, idx) => {
-               const getMediaUrl = (pathStr: string) => {
-                  const parts = pathStr.replace(/\\/g, '/').split('/output/');
-                  if (parts.length > 1) {
-                      return `http://localhost:8000/media/${parts[1]}`;
-                  }
-                  return pathStr; // Fallback
-               };
-               
-               const baseName = vid.replace('.mp4', '');
-               const srt = srts.find(s => s.replace('.srt', '') === baseName);
+          const files: string[] = parsed.output_files;
+          const videos = files.filter(f => f.endsWith('.mp4'));
+          const srts = files.filter(f => f.endsWith('.srt'));
+          const originalTitle = (parsed.video_path || '').split(/[/\\]/).pop()?.replace(/\.[^/.]+$/, "") || 'Video Klip';
 
-               let durationStr = '-';
-               const durMatch = vid.match(/_target_(\d+)s_/);
-               if (durMatch) {
-                   durationStr = `${durMatch[1]}s`;
-               } else {
-                   const tsMatch = vid.match(/timestamp_(\d+)s_to_(\d+)s/);
-                   if (tsMatch) {
-                       durationStr = `${parseInt(tsMatch[2]) - parseInt(tsMatch[1])}s`;
-                   }
-               }
+          // Get clips metadata if available
+          const clipsMetadata = parsed.clips_metadata || [];
 
-               // Get topic from metadata
-               const metadata = clipsMetadata.find((m: any) => m.index === idx);
-               const topic = metadata?.topic || 'Video Clip';
-               const aspectRatio = metadata?.aspect_ratio || '9:16';
-               const start = metadata?.start ?? 0;
-               const end = metadata?.end ?? 0;
+          const paired = videos.map((vid, idx) => {
+            const getMediaUrl = (pathStr: string) => {
+              const parts = pathStr.replace(/\\/g, '/').split('/output/');
+              if (parts.length > 1) {
+                return `http://localhost:8000/media/${parts[1]}`;
+              }
+              return pathStr; // Fallback
+            };
 
-               return {
-                  videoUrl: getMediaUrl(vid),
-                  srtUrl: srt ? getMediaUrl(srt) : '',
-                  fileName: vid.split('/').pop()?.split('\\').pop() || 'video.mp4',
-                  srtName: srt ? (srt.split('/').pop()?.split('\\').pop() || '') : '',
-                  duration: durationStr,
-                  videoTitle: originalTitle,
-                  topic: topic,
-                  aspectRatio: aspectRatio,
-                  start,
-                  end
-               };
-           });
-           setResults(paired);
+            const baseName = vid.replace('.mp4', '');
+            const srt = srts.find(s => s.replace('.srt', '') === baseName);
+
+            let durationStr = '-';
+            const durMatch = vid.match(/_target_(\d+)s_/);
+            if (durMatch) {
+              durationStr = `${durMatch[1]}s`;
+            } else {
+              const tsMatch = vid.match(/timestamp_(\d+)s_to_(\d+)s/);
+              if (tsMatch) {
+                durationStr = `${parseInt(tsMatch[2]) - parseInt(tsMatch[1])}s`;
+              }
+            }
+
+            // Get topic from metadata
+            const metadata = clipsMetadata.find((m: any) => m.index === idx);
+            const topic = metadata?.topic || 'Video Clip';
+            const summary = metadata?.summary || '';
+            const aspectRatio = metadata?.aspect_ratio || '9:16';
+            const start = metadata?.start ?? 0;
+            const end = metadata?.end ?? 0;
+
+            return {
+              videoUrl: getMediaUrl(vid),
+              srtUrl: srt ? getMediaUrl(srt) : '',
+              fileName: vid.split('/').pop()?.split('\\').pop() || 'video.mp4',
+              srtName: srt ? (srt.split('/').pop()?.split('\\').pop() || '') : '',
+              duration: durationStr,
+              videoTitle: originalTitle,
+              topic: topic,
+              summary: summary,
+              aspectRatio: aspectRatio,
+              start,
+              end
+            };
+          });
+          setResults(paired);
         }
       } catch (e) {
         // Not a JSON or other error, ignore
@@ -127,19 +131,19 @@ function App() {
     setIsProcessing(true);
     setResults([]);
     setSessionId(prev => prev + 1); // Reset terminal UI by unmounting/remounting
-    
+
     try {
       const response = await fetch('http://localhost:8000/api/v1/process', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          url, 
-          aspect_ratio: ratio, 
-          target_duration: duration ? parseInt(duration, 10) : undefined, 
-          output_count: count ? parseInt(count, 10) : undefined, 
-          prompt_context: prompt || undefined, 
+        body: JSON.stringify({
+          url,
+          aspect_ratio: ratio,
+          target_duration: duration ? parseInt(duration, 10) : undefined,
+          output_count: count ? parseInt(count, 10) : undefined,
+          prompt_context: prompt || undefined,
           custom_timestamps: timestamps || undefined
         }),
       });
@@ -205,7 +209,7 @@ function App() {
             AI Clipper
           </Typography>
         </Box>
-        
+
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
           <TextField
             label="URL YouTube"
@@ -241,8 +245,8 @@ function App() {
               type="text"
               placeholder="mis. 60"
               value={duration}
-              onChange={(e) => { const raw = e.target.value; const sanitized = raw.replace(/\D/g, ''); setDuration(sanitized); if (sanitized && !isNaN(parseInt(sanitized,10)) && parseInt(sanitized,10) > 0) setErrors(prev => { const p = { ...prev }; delete p.duration; return p; }); }}
-              onBlur={() => { if (duration && (isNaN(parseInt(duration,10)) || parseInt(duration,10) <= 0)) setErrors(prev => ({ ...prev, duration: 'Harus angka positif.' })); else setErrors(prev => { const p = { ...prev }; delete p.duration; return p; }) }}
+              onChange={(e) => { const raw = e.target.value; const sanitized = raw.replace(/\D/g, ''); setDuration(sanitized); if (sanitized && !isNaN(parseInt(sanitized, 10)) && parseInt(sanitized, 10) > 0) setErrors(prev => { const p = { ...prev }; delete p.duration; return p; }); }}
+              onBlur={() => { if (duration && (isNaN(parseInt(duration, 10)) || parseInt(duration, 10) <= 0)) setErrors(prev => ({ ...prev, duration: 'Harus angka positif.' })); else setErrors(prev => { const p = { ...prev }; delete p.duration; return p; }) }}
               error={!!errors.duration}
               helperText={errors.duration}
               disabled={isProcessing}
@@ -256,8 +260,8 @@ function App() {
             type="text"
             placeholder="mis. 5"
             value={count}
-            onChange={(e) => { const raw = e.target.value; const sanitized = raw.replace(/\D/g, ''); setCount(sanitized); if (sanitized && !isNaN(parseInt(sanitized,10)) && parseInt(sanitized,10) > 0) setErrors(prev => { const p = { ...prev }; delete p.count; return p; }); }}
-            onBlur={() => { if (count && (isNaN(parseInt(count,10)) || parseInt(count,10) <= 0)) setErrors(prev => ({ ...prev, count: 'Harus angka positif.' })); else setErrors(prev => { const p = { ...prev }; delete p.count; return p; }) }}
+            onChange={(e) => { const raw = e.target.value; const sanitized = raw.replace(/\D/g, ''); setCount(sanitized); if (sanitized && !isNaN(parseInt(sanitized, 10)) && parseInt(sanitized, 10) > 0) setErrors(prev => { const p = { ...prev }; delete p.count; return p; }); }}
+            onBlur={() => { if (count && (isNaN(parseInt(count, 10)) || parseInt(count, 10) <= 0)) setErrors(prev => ({ ...prev, count: 'Harus angka positif.' })); else setErrors(prev => { const p = { ...prev }; delete p.count; return p; }) }}
             error={!!errors.count}
             helperText={errors.count}
             disabled={isProcessing}
@@ -291,10 +295,10 @@ function App() {
             size="small"
           />
 
-          <Button 
-            type="submit" 
-            variant="contained" 
-            color="primary" 
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
             size="large"
             disabled={isProcessing}
             startIcon={<PlayArrowIcon />}
@@ -307,84 +311,102 @@ function App() {
 
       {/* Right Panel: Terminal Pipeline and Results */}
       <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-        
+
         <Box sx={{ height: { xs: '30vh', md: '40%' }, borderBottom: 1, borderColor: 'divider', overflow: 'hidden' }}>
           <TerminalUI key={`term-${sessionId}`} subscribe={subscribe} height="100%" />
         </Box>
 
-        <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 3, bgcolor: '#121212' }}>
-          <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', mb: 3 }}>
-            Hasil Kliping
-          </Typography>
-          
-          {results.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-              <Typography variant="body1">Belum ada hasil kliping video. Silakan kirim proses baru.</Typography>
-            </Box>
-          ) : (
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 3 }}>
-              {results.map((res, idx) => (
-                <Card 
-                  key={idx}
-                  sx={{ 
-                    height: '100%', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    transition: 'transform 0.2s',
-                    '&:hover': { transform: 'translateY(-4px)', boxShadow: 6 }
-                  }}
-                >
-                  <CardActionArea onClick={() => setActiveVideo(res)} sx={{ position: 'relative' }}>
-                    <Box sx={{ position: 'relative', paddingTop: res.aspectRatio === '16:9' ? '56.25%' : '177.78%', bgcolor: 'black' }}>
-                      <video 
-                        src={res.videoUrl} 
-                        preload="metadata" 
-                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain' }}
-                      />
-                      <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bgcolor: 'rgba(0,0,0,0.5)', borderRadius: '50%', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <PlayArrowIcon sx={{ fontSize: 48, color: 'white' }} />
+        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', bgcolor: '#121212', overflow: 'hidden' }}>
+          <Box sx={{ p: 3, pb: 2, borderBottom: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+            <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold' }}>
+              Hasil Kliping
+            </Typography>
+          </Box>
+
+          <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 3 }}>
+            {results.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+                <Typography variant="body1">Belum ada hasil kliping video. Silakan kirim proses baru.</Typography>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 3 }}>
+                {results.map((res, idx) => (
+                  <Card
+                    key={idx}
+                    sx={{
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      transition: 'transform 0.2s',
+                      '&:hover': { transform: 'translateY(-4px)', boxShadow: 6 }
+                    }}
+                  >
+                    <CardActionArea onClick={() => setActiveVideo(res)} sx={{ position: 'relative' }}>
+                      <Box sx={{ position: 'relative', paddingTop: res.aspectRatio === '16:9' ? '56.25%' : '177.78%', bgcolor: 'black' }}>
+                        <video
+                          src={res.videoUrl}
+                          preload="metadata"
+                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+                        />
+                        <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bgcolor: 'rgba(0,0,0,0.5)', borderRadius: '50%', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <PlayArrowIcon sx={{ fontSize: 48, color: 'white' }} />
+                        </Box>
+                        <Chip
+                          label={`Klip #${idx + 1}`}
+                          color="primary"
+                          size="small"
+                          sx={{ position: 'absolute', top: 8, left: 8, fontWeight: 'bold' }}
+                        />
                       </Box>
-                      <Chip 
-                        label={`Klip #${idx + 1}`} 
-                        color="primary" 
-                        size="small" 
-                        sx={{ position: 'absolute', top: 8, left: 8, fontWeight: 'bold' }} 
-                      />
-                    </Box>
-                  </CardActionArea>
-                  <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Typography variant="subtitle1" component="h3" sx={{ 
-                      fontWeight: 'bold',
-                      display: '-webkit-box', 
-                      WebkitLineClamp: 2, 
-                      WebkitBoxOrient: 'vertical', 
-                      overflow: 'hidden',
-                      lineHeight: 1.2,
-                      mb: 1
-                    }}>
-                      {res.topic}
-                    </Typography>
-                    
-                    <Stack direction="row" spacing={2} sx={{ mt: 'auto', flexWrap: 'wrap', gap: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-                        <AccessTimeIcon fontSize="small" />
-                        <Typography variant="body2">{res.duration}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-                        <Typography variant="body2">[{formatClipTime(res.start)} - {formatClipTime(res.end)}]</Typography>
-                      </Box>
-                    </Stack>
-                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                      <Chip label={res.aspectRatio} size="small" variant="outlined" />
-                      {res.srtName && (
-                        <Chip icon={<DescriptionIcon fontSize="small" />} label="Subtitle" size="small" color="secondary" variant="outlined" />
+                    </CardActionArea>
+                    <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Typography variant="subtitle1" component="h3" sx={{
+                        fontWeight: 'bold',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        lineHeight: 1.2,
+                        mb: 1
+                      }}>
+                        {res.topic}
+                      </Typography>
+
+                      {res.summary && (
+                        <Typography variant="body2" color="text.secondary" sx={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          mb: 1
+                        }}>
+                          {res.summary}
+                        </Typography>
                       )}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
-          )}
+
+                      <Stack direction="row" spacing={2} sx={{ mt: 'auto', flexWrap: 'wrap', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                          <AccessTimeIcon fontSize="small" />
+                          <Typography variant="body2"><strong>Durasi:</strong> {res.duration}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                          <Typography variant="body2"><strong>Range:</strong> {formatClipTime(res.start)} - {formatClipTime(res.end)}</Typography>
+                        </Box>
+                      </Stack>
+                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                        <Chip label={`Rasio ${res.aspectRatio}`} size="small" variant="outlined" />
+                        {res.srtName && (
+                          <Tooltip title={res.srtName} arrow placement="top">
+                            <Chip icon={<DescriptionIcon fontSize="small" />} label="Subtitle" size="small" color="secondary" variant="outlined" sx={{ cursor: 'pointer' }} />
+                          </Tooltip>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            )}
+          </Box>
         </Box>
       </Box>
 
@@ -395,8 +417,8 @@ function App() {
         sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}
       >
         <Box sx={{ position: 'relative', width: '100%', maxWidth: ratio === '16:9' ? '1000px' : '450px', bgcolor: 'black', borderRadius: 2, overflow: 'hidden', outline: 'none', boxShadow: 24 }}>
-          <IconButton 
-            onClick={() => setActiveVideo(null)} 
+          <IconButton
+            onClick={() => setActiveVideo(null)}
             sx={{ position: 'absolute', top: 8, right: 8, color: 'white', zIndex: 10, bgcolor: 'rgba(0,0,0,0.5)', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }}
           >
             <CloseIcon />

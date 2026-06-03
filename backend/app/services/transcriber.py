@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from typing import List, Tuple
+import json
 
 import ffmpeg
 from faster_whisper import WhisperModel
@@ -22,8 +23,22 @@ def extract_audio(video_path: Path, audio_path: Path) -> None:
         .run(quiet=True, capture_stdout=True, capture_stderr=True))
 
 
-def transcribe_video(video_path: Path, work_dir: Path) -> Tuple[str, Path, List[dict]]:
+def transcribe_video(video_path: Path, work_dir: Path) -> Tuple[str, Path, List[dict], bool]:
     work_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Define cache paths based on video_path (so it travels with the cached video)
+    cached_srt_path = video_path.with_suffix('.srt')
+    cached_json_path = video_path.with_suffix('.json')
+    
+    if cached_srt_path.exists() and cached_json_path.exists():
+        # Load from cache
+        with cached_json_path.open('r', encoding='utf-8') as f:
+            timestamps = json.load(f)
+        
+        transcript_text = "\n".join(seg.get("text", "").strip() for seg in timestamps if seg.get("text", "").strip())
+        
+        return transcript_text, cached_srt_path, timestamps, True
+
     audio_path = work_dir / "audio.wav"
     extract_audio(video_path, audio_path)
 
@@ -45,7 +60,16 @@ def transcribe_video(video_path: Path, work_dir: Path) -> Tuple[str, Path, List[
         for segment in segments
     ]
 
-    return transcript_text, srt_path, timestamps
+    # Save to cache
+    import shutil
+    try:
+        shutil.copy2(str(srt_path), str(cached_srt_path))
+        with cached_json_path.open('w', encoding='utf-8') as f:
+            json.dump(timestamps, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Warning: Failed to save transcription cache: {e}")
+
+    return transcript_text, srt_path, timestamps, False
 
 
 def format_timestamp(seconds: float) -> str:

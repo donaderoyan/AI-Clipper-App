@@ -19,7 +19,7 @@ def extract_highlights_from_text(transcript: str, prompt_context: str, segments:
     for i in range(output_count):
         start_time = 12.5 + (i * 100)
         end_time = start_time + (target_duration if target_duration else 19.5)
-        example_json += f'  {{"start": {start_time}, "end": {end_time}, "label": "Hook utama {i+1}", "topic": "Topik klip singkat {i+1}"}}'
+        example_json += f'  {{"start": {start_time}, "end": {end_time}, "label": "Hook utama {i+1}", "topic": "Topik klip singkat {i+1}", "summary": "Klip ini menyoroti momen paling menarik {i+1} dari video."}}'
         if i < output_count - 1:
             example_json += ",\n"
     example_json += "\n]"
@@ -28,8 +28,9 @@ def extract_highlights_from_text(transcript: str, prompt_context: str, segments:
         "Kamu adalah asisten yang mencari highlight terbaik dari transkrip video. "
         f"Tentukan {output_count} segmen yang paling menarik, utuh, dan relevan. "
         f"{duration_instruction}"
-        "Untuk setiap segmen, berikan JSON dengan field: start, end, label, dan topic. "
+        "Untuk setiap segmen, berikan JSON dengan field: start, end, label, topic, dan summary. "
         "Topic harus berupa ringkasan singkat 3-8 kata yang menggambarkan inti klip. "
+        "Summary harus berupa 1-2 kalimat singkat yang mendeskripsikan mengapa bagian ini menarik atau apa yang terjadi di dalamnya. "
         "Berikan jawaban dalam format JSON list berikut tanpa teks lain:\n"
         f"{example_json}\n"
         f"Konteks tugas: {prompt_context}\n"
@@ -76,14 +77,15 @@ def parse_highlight_output(output: str) -> List[Dict[str, object]]:
                 "start": float(match.group(1)),
                 "end": float(match.group(2)),
                 "label": "highlight",
-                "topic": "Video Clip"
+                "topic": "Video Clip",
+                "summary": "Highlight video"
             })
     return timestamps
 
 
 def fallback_segments(segments: List[dict], output_count: int = 1, target_duration: Optional[int] = None) -> List[Dict[str, object]]:
     if not segments:
-        return [{"start": 0.0, "end": 20.0, "label": "default", "topic": "Video Clip"} for _ in range(output_count)]
+        return [{"start": 0.0, "end": 20.0, "label": "default", "topic": "Video Clip", "summary": "Video clip."} for _ in range(output_count)]
 
     fallbacks = []
     duration = target_duration if target_duration else 25.0
@@ -91,16 +93,19 @@ def fallback_segments(segments: List[dict], output_count: int = 1, target_durati
     total_segments = len(segments)
     step = max(1, total_segments // output_count)
     
+    s = 0.0
     for i in range(output_count):
         idx = min(i * step, total_segments - 1)
         candidate = segments[idx]
-        start_time = float(candidate.get("start", 0.0))
-        end_time = float(min(start_time + duration, segments[-1].get("end", start_time + duration)))
+        start_time = float(candidate.get("start", s))
+        e = float(min(start_time + duration, segments[-1].get("end", start_time + duration)))
         fallbacks.append({
             "start": start_time,
-            "end": end_time,
-            "label": f"fallback_{i+1}",
-            "topic": f"Klip fallback {i+1}"
+            "end": e,
+            "label": f"clip_{i+1}",
+            "topic": f"Klip {i+1}",
+            "summary": f"Klip video bagian {i+1}."
         })
+        s = e
         
     return fallbacks

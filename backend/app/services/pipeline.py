@@ -70,7 +70,12 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
             update_job_status(job_id, JobState.running, "Video berhasil diunduh", step="download", progress=15)
         
         update_job_status(job_id, JobState.running, "Mengekstrak audio dan transkripsi video...", step="transcribe", progress=40, in_place=True)
-        transcript_text, transcript_path, segments = transcribe_video(video_path, work_dir)
+        transcript_text, transcript_path, segments, trans_cached = transcribe_video(video_path, work_dir)
+        if trans_cached:
+            update_job_status(job_id, JobState.running, "Transkrip sudah tersedia (menggunakan cache)", step="transcribe", progress=60)
+        else:
+            update_job_status(job_id, JobState.running, "Berhasil mengekstrak audio dan transkripsi video", step="transcribe", progress=60)
+            
         set_job_artifacts(job_id, str(video_path), str(transcript_path))
 
         update_job_status(job_id, JobState.running, "Menganalisis transkrip untuk menemukan highlight...", step="analyze", progress=70, in_place=True)
@@ -167,13 +172,29 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
             
             topic = clip.get("topic", "Video Clip")
             
-            # Store metadata for this clip
+            # Ekstrak teks asli dari transkrip untuk rentang waktu klip ini
+            clip_text = []
+            for seg in segments:
+                if seg["start"] < float(clip["end"]) and seg["end"] > float(clip["start"]):
+                    clip_text.append(seg["text"].strip())
+            
+            transcript_excerpt = " ".join(clip_text)
+            
+            if transcript_excerpt:
+                if len(transcript_excerpt) > 250:
+                    summary = transcript_excerpt[:247] + "..."
+                else:
+                    summary = transcript_excerpt
+            else:
+                summary = clip.get("summary", "")
+            
             clips_metadata.append({
                 "index": i,
                 "filename": output_filename,
                 "video_path": str(output_path),
                 "srt_path": str(output_srt_path),
                 "topic": topic,
+                "summary": summary,
                 "duration": dur_val,
                 "start": start_val,
                 "end": end_val,

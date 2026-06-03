@@ -38,6 +38,48 @@ Aplikasi ini dirancang khusus untuk memproses:
 
 ---
 
+## Daftar AI & Spesifikasi Model
+
+Proyek ini memanfaatkan beberapa model AI lokal untuk menjamin privasi (berjalan tanpa mengirimkan data ke cloud):
+
+1. **faster-whisper (Audio to Text)**
+   - **Model:** `base` (CTranslate2 format)
+   - **Ukuran Model:** ~145 MB
+   - **Fungsi:** Mentranskripsi audio menjadi teks dan mengekstrak *timestamp* akurat untuk setiap segmen.
+   - **Performa:** Sangat ringan, cepat, dan dioptimalkan untuk berjalan di CPU (kuantisasi `int8`).
+
+2. **Ollama (Text Analysis & Summarization)**
+   - **Model Default:** `llama2` (7B parameters)
+   - **Ukuran Model:** ~3.8 GB (tergantung variasi/quantization)
+   - **Fungsi:** Menganalisis konteks transkrip teks penuh untuk mencari momen puncak/hook, lalu membuatkan *topic* dan *summary* untuk tiap klip.
+   - **Catatan:** Anda bisa mengganti model ke yang lebih ringan atau berat (seperti `llama3` atau `mistral`) melalui environment variable `OLLAMA_MODEL`.
+
+3. **OpenCV Haar Cascades (Computer Vision)**
+   - **Model:** `haarcascade_frontalface_default.xml` & `haarcascade_profileface.xml`
+   - **Ukuran Model:** < 2 MB
+   - **Fungsi:** Mendeteksi wajah (menghadap depan & menyamping) untuk *Smart Panning*, memastikan fokus kamera tetap pada pembicara saat konversi video lanskap ke vertikal.
+
+## Spesifikasi Sistem (Minimum & Rekomendasi)
+
+Karena aplikasi ini menjalankan LLM (Ollama) dan Docker secara lokal, dibutuhkan spesifikasi PC/Laptop yang cukup mumpuni:
+
+**Minimum Requirements (Hanya CPU):**
+- **OS:** Windows 10/11 64-bit, macOS, atau Linux
+- **CPU:** Quad-core processor (Intel Core i5 gen-8+ / AMD Ryzen 5)
+- **RAM:** 8 GB
+- **Storage:** 10 GB free space (SSD sangat direkomendasikan) untuk Docker image, weight model AI, dan cache video
+- **Software:** Docker Desktop, Ollama (terinstall lokal)
+
+**Recommended Requirements (Dengan Akselerasi GPU):**
+- **OS:** Windows 10/11 64-bit, macOS, atau Linux
+- **CPU:** 8-core processor atau yang lebih baru
+- **RAM:** 16 GB atau 32 GB (sangat disarankan agar Ollama dan Docker bisa dialokasikan RAM memadai secara bersamaan)
+- **GPU:** NVIDIA GPU dengan minimal 6GB VRAM (Opsional, tapi **sangat disarankan** agar pemrosesan teks oleh Ollama dan encoding FFmpeg berjalan seketika)
+- **Storage:** 20+ GB SSD
+- **Software:** Docker Desktop (dengan integrasi WSL2 di Windows), Ollama (terinstall lokal)
+
+---
+
 ## Prerequisites
 - **Docker Desktop** terinstall dan berjalan (WSL2 direkomendasikan di Windows)
 - **Ollama** running di Docker (untuk Local LLM)
