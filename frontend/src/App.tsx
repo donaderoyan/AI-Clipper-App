@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { TerminalUI } from './components/TerminalUI';
 import { Video, Play, FileText, X, Clock } from 'lucide-react';
+import { Plyr } from 'plyr-react';
+import 'plyr/dist/plyr.css';
 import './App.css';
 
 interface ClipResult {
@@ -357,15 +359,18 @@ function App() {
             <button className="btn-close-modal" onClick={() => setActiveVideo(null)}>
               <X size={24} />
             </button>
-            <video 
-              src={activeVideo} 
-              controls 
-              autoPlay 
-              playsInline
-              preload="metadata"
-              onClick={(e) => e.stopPropagation()}
-              className={`modal-video aspect-${ratio.replace(':', '-')}`} 
-            />
+            <div className={`modal-video aspect-${ratio.replace(':', '-')}`} onClick={(e) => e.stopPropagation()}>
+              <Plyr
+                source={{
+                  type: 'video',
+                  sources: [{ src: activeVideo, type: 'video/mp4' }]
+                }}
+                options={{
+                  autoplay: true,
+                  controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen']
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
