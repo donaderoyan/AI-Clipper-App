@@ -166,19 +166,22 @@ def run_ai_pipeline(job_id: str, request_data) -> None:
             
             topic = clip.get("topic", "Video Clip")
             
-            # Ekstrak teks asli dari transkrip untuk rentang waktu klip ini
+            # Ekstrak teks langsung dari file .srt yang telah dibuat, bukan data mentah whisper
             clip_text = []
-            for seg in segments:
-                if seg["start"] < float(clip["end"]) and seg["end"] > float(clip["start"]):
-                    clip_text.append(seg["text"].strip())
+            try:
+                with open(output_srt_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.isdigit() or '-->' in line:
+                            continue
+                        clip_text.append(line)
+            except Exception as e:
+                print(f"Peringatan: Gagal membaca file srt: {e}")
             
             transcript_excerpt = " ".join(clip_text)
             
             if transcript_excerpt:
-                if len(transcript_excerpt) > 250:
-                    summary = transcript_excerpt[:247] + "..."
-                else:
-                    summary = transcript_excerpt
+                summary = transcript_excerpt
             else:
                 summary = clip.get("summary", "")
             
