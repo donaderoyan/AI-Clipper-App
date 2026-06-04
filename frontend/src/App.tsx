@@ -312,7 +312,7 @@ function App() {
       {/* Right Panel: Terminal Pipeline and Results */}
       <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
-        <Box sx={{ height: { xs: '30vh', md: '40%' }, borderBottom: 1, borderColor: 'divider', overflow: 'hidden' }}>
+        <Box sx={{ height: { xs: '30vh', md: '30%' }, flexShrink: 0, borderBottom: 1, borderColor: 'divider', overflow: 'hidden' }}>
           <TerminalUI key={`term-${sessionId}`} subscribe={subscribe} height="100%" />
         </Box>
 
