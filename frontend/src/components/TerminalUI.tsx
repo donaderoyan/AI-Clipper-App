@@ -2,14 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
-import { Box, Typography, LinearProgress, CircularProgress, useTheme } from '@mui/material';
-
+import { Box, Typography, LinearProgress, CircularProgress, useTheme, IconButton } from '@mui/material';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 interface TerminalUIProps {
   subscribe: (listener: (data: string) => void) => () => void;
   height?: string;
+  isExpanded?: boolean;
+  onToggle?: () => void;
 }
 
-export function TerminalUI({ subscribe, height = '300px' }: TerminalUIProps) {
+export function TerminalUI({ subscribe, height = '300px', isExpanded = true, onToggle }: TerminalUIProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -213,15 +216,19 @@ export function TerminalUI({ subscribe, height = '300px' }: TerminalUIProps) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height, bgcolor: 'background.paper', borderRadius: 1, overflowX: 'hidden', overflowY: 'auto' }}>
-      <Box sx={{
+      <Box 
+        onClick={onToggle}
+        sx={{
         bgcolor: 'rgba(0, 0, 0, 0.2)',
         px: 2,
         py: 1,
-        borderBottom: 1,
+        borderBottom: isExpanded ? 1 : 0,
         borderColor: 'divider',
         display: 'flex',
         alignItems: 'center',
-        gap: 2
+        gap: 2,
+        cursor: onToggle ? 'pointer' : 'default',
+        '&:hover': onToggle ? { bgcolor: 'rgba(0, 0, 0, 0.3)' } : {}
       }}>
         <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 'bold', letterSpacing: 1, whiteSpace: 'nowrap' }}>
           Konsol Sistem
@@ -239,12 +246,17 @@ export function TerminalUI({ subscribe, height = '300px' }: TerminalUIProps) {
         <Box sx={{ ml: 'auto', display: 'flex', gap: 1, alignItems: 'center' }}>
           {globalIsRunning && <CircularProgress size={14} thickness={5} />}
           <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: globalIsRunning ? 'warning.main' : 'success.main', boxShadow: `0 0 8px ${globalIsRunning ? theme.palette.warning.main : theme.palette.success.main}` }} />
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 1 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 1, mr: 1 }}>
             {globalIsRunning ? 'BERJALAN' : 'SIAP'}
           </Typography>
+          {onToggle && (
+            <IconButton size="small" sx={{ p: 0.5 }}>
+              {isExpanded ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
+            </IconButton>
+          )}
         </Box>
       </Box>
-      <Box sx={{ flex: 1, p: 1.5, overflow: 'hidden', '& .xterm': { height: '100%' } }} ref={terminalRef}></Box>
+      <Box sx={{ flex: 1, p: 1.5, overflow: 'hidden', display: isExpanded ? 'block' : 'none', '& .xterm': { height: '100%' } }} ref={terminalRef}></Box>
     </Box>
   );
 }

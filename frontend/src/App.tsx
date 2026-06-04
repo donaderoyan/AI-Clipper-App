@@ -54,12 +54,14 @@ function App() {
   const [results, setResults] = useState<ClipResult[]>([]);
   const [activeVideo, setActiveVideo] = useState<ClipResult | null>(null);
   const [sessionId, setSessionId] = useState<number>(0);
+  const [terminalExpanded, setTerminalExpanded] = useState(true);
 
   useEffect(() => {
     const unsub = subscribe((data: string) => {
       try {
         const parsed = JSON.parse(data.trim());
         if (parsed.status === 'success' && parsed.output_files && parsed.output_files.length > 0) {
+          setTerminalExpanded(false);
           const files: string[] = parsed.output_files;
           const videos = files.filter(f => f.endsWith('.mp4'));
           const srts = files.filter(f => f.endsWith('.srt'));
@@ -130,6 +132,7 @@ function App() {
 
     setIsProcessing(true);
     setResults([]);
+    setTerminalExpanded(true);
     setSessionId(prev => prev + 1); // Reset terminal UI by unmounting/remounting
 
     try {
@@ -312,8 +315,21 @@ function App() {
       {/* Right Panel: Terminal Pipeline and Results */}
       <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
-        <Box sx={{ height: { xs: '30vh', md: '30%' }, flexShrink: 0, borderBottom: 1, borderColor: 'divider', overflow: 'hidden' }}>
-          <TerminalUI key={`term-${sessionId}`} subscribe={subscribe} height="100%" />
+        <Box sx={{ 
+          height: terminalExpanded ? { xs: '30vh', md: '30%' } : 'auto', 
+          flexShrink: 0, 
+          borderBottom: 1, 
+          borderColor: 'divider', 
+          overflow: 'hidden',
+          transition: 'height 0.3s ease-in-out'
+        }}>
+          <TerminalUI 
+            key={`term-${sessionId}`} 
+            subscribe={subscribe} 
+            height={terminalExpanded ? "100%" : "auto"} 
+            isExpanded={terminalExpanded}
+            onToggle={() => setTerminalExpanded(!terminalExpanded)}
+          />
         </Box>
 
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', bgcolor: '#121212', overflow: 'hidden' }}>
